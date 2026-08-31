@@ -26,7 +26,7 @@ La pantalla principal es un mapa con la posición de cada camión activo, que se
 
 | Componente | Tecnología |
 |---|---|
-| Framework | React Native con Expo (SDK más reciente) |
+| Framework | React Native 0.86 con Expo SDK 57 |
 | Lenguaje | TypeScript |
 | Navegación | Expo Router (basada en archivos) |
 | Estado del servidor | TanStack Query (React Query) |
@@ -98,18 +98,22 @@ Para verificar rápido si el teléfono llega al backend, abrir `http://TU_IP:808
 ## Estructura del proyecto
 
 ```
-app/                 Pantallas (rutas de Expo Router, basadas en archivos)
-├── (tabs)/          Navegación principal por pestañas
-├── viaje/[id].tsx   Detalle de un viaje con su mapa
-└── login.tsx        Inicio de sesión
-
 src/
+├── app/             Pantallas (rutas de Expo Router, basadas en archivos)
+│   ├── _layout.tsx  Layout raíz: tema y navegación por pestañas
+│   ├── index.tsx    Inicio
+│   └── mapa.tsx     Mapa de los camiones en curso
 ├── api/             Cliente Axios e interceptores; una función por endpoint
 ├── components/      Componentes reutilizables
+├── config/          Lectura de las variables de entorno
+├── constants/       Tema: colores, espaciados y tipografías
 ├── context/         Contexto de autenticación
 ├── hooks/           Hooks de datos y de seguimiento en vivo
 └── types/           Interfaces TypeScript espejo de los DTOs del backend
 ```
+
+El alias `@/` apunta a `src/`, así que los imports se escriben `@/components/themed-text`
+en lugar de rutas relativas.
 
 ---
 
@@ -139,7 +143,7 @@ Por eso el modo chofer se implementa primero en primer plano (con la app abierta
 
 ## Roadmap
 
-- [ ] Proyecto Expo funcionando en el dispositivo con Expo Go
+- [x] Proyecto Expo funcionando en el dispositivo con Expo Go
 - [ ] Pantalla de login
 - [ ] Listado de camiones y viajes desde la API
 - [ ] Mapa con seguimiento en vivo
