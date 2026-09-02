@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,12 +16,15 @@ const ESTADOS: Record<BackendStatus, { color: string; etiqueta: string }> = {
 };
 
 export default function InicioScreen() {
+  const router = useRouter();
   const { status, verificar } = useBackendStatus();
   const estado = ESTADOS[status];
 
   const card = useThemeColor({}, 'card');
   const border = useThemeColor({}, 'border');
   const textSecondary = useThemeColor({}, 'textSecondary');
+  const tint = useThemeColor({}, 'tint');
+  const background = useThemeColor({}, 'background');
 
   return (
     <ThemedView style={styles.container}>
@@ -33,6 +37,19 @@ export default function InicioScreen() {
             Seguimiento de flota en tiempo real
           </ThemedText>
         </View>
+
+        <Pressable
+          onPress={() => router.push('/login')}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.botonPrimario,
+            { backgroundColor: tint },
+            pressed && styles.botonPresionado,
+          ]}>
+          <ThemedText type="defaultSemiBold" style={{ color: background }}>
+            Iniciar sesión
+          </ThemedText>
+        </Pressable>
 
         <View style={[styles.tarjeta, { backgroundColor: card }]}>
           <View style={styles.filaEstado}>
@@ -119,6 +136,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  botonPrimario: {
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.two,
   },
   botonPresionado: {
     opacity: 0.6,

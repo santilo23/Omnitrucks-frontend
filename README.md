@@ -151,7 +151,8 @@ Por eso el modo chofer se implementa primero en primer plano (con la app abierta
 ## Roadmap
 
 - [x] Proyecto Expo funcionando en el dispositivo con Expo Go
-- [ ] Pantalla de login
+- [x] Pantalla de login: formulario y validaciones
+- [ ] Sesión real: JWT, almacenamiento seguro y navegación protegida
 - [ ] Listado de camiones y viajes desde la API
 - [ ] Mapa con seguimiento en vivo
 - [ ] Detalle de viaje con recorrido y datos del envío
