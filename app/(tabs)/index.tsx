@@ -4,56 +4,61 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { env } from '@/config/env';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, Spacing, StatusColors } from '@/constants/theme';
 import { useBackendStatus, type BackendStatus } from '@/hooks/use-backend-status';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 const ESTADOS: Record<BackendStatus, { color: string; etiqueta: string }> = {
-  verificando: { color: '#B0B4BA', etiqueta: 'Verificando…' },
-  conectado: { color: '#2E9E5B', etiqueta: 'Conectado' },
-  'sin-conexion': { color: '#D93F3F', etiqueta: 'Sin conexión' },
+  verificando: { color: StatusColors.pending, etiqueta: 'Verificando…' },
+  conectado: { color: StatusColors.ok, etiqueta: 'Conectado' },
+  'sin-conexion': { color: StatusColors.error, etiqueta: 'Sin conexión' },
 };
 
 export default function InicioScreen() {
   const { status, verificar } = useBackendStatus();
   const estado = ESTADOS[status];
 
+  const card = useThemeColor({}, 'card');
+  const border = useThemeColor({}, 'border');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.hero}>
+        <View style={styles.hero}>
           <ThemedText type="title" style={styles.titulo}>
             OmniTrucks
           </ThemedText>
-          <ThemedText type="default" themeColor="textSecondary" style={styles.subtitulo}>
+          <ThemedText style={[styles.subtitulo, { color: textSecondary }]}>
             Seguimiento de flota en tiempo real
           </ThemedText>
-        </ThemedView>
+        </View>
 
-        <ThemedView type="backgroundElement" style={styles.tarjeta}>
+        <View style={[styles.tarjeta, { backgroundColor: card }]}>
           <View style={styles.filaEstado}>
-            <ThemedText type="smallBold">Backend</ThemedText>
+            <ThemedText type="defaultSemiBold">Backend</ThemedText>
             <View style={styles.estado}>
               <View style={[styles.punto, { backgroundColor: estado.color }]} />
-              <ThemedText type="small" themeColor="textSecondary">
-                {estado.etiqueta}
-              </ThemedText>
+              <ThemedText style={{ color: textSecondary }}>{estado.etiqueta}</ThemedText>
             </View>
           </View>
 
-          <ThemedText type="code" themeColor="textSecondary">
-            {env.apiUrl}
-          </ThemedText>
+          <ThemedText style={[styles.url, { color: textSecondary }]}>{env.apiUrl}</ThemedText>
 
           <Pressable
             onPress={verificar}
             disabled={status === 'verificando'}
-            style={({ pressed }) => [styles.boton, pressed && styles.botonPresionado]}>
-            <ThemedText type="smallBold">Reintentar</ThemedText>
+            style={({ pressed }) => [
+              styles.boton,
+              { borderColor: border },
+              pressed && styles.botonPresionado,
+            ]}>
+            <ThemedText type="defaultSemiBold">Reintentar</ThemedText>
           </Pressable>
-        </ThemedView>
+        </View>
 
         {status === 'sin-conexion' && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.ayuda}>
+          <ThemedText style={[styles.ayuda, { color: textSecondary }]}>
             Revisá que el backend esté levantado, que la IP del archivo .env sea la de tu
             computadora y que el teléfono esté en la misma red WiFi.
           </ThemedText>
@@ -66,15 +71,12 @@ export default function InicioScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.four,
     gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
   },
   hero: {
     flex: 1,
@@ -88,11 +90,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tarjeta: {
-    alignSelf: 'stretch',
     gap: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    padding: Spacing.four,
+    borderRadius: Spacing.three,
   },
   filaEstado: {
     flexDirection: 'row',
@@ -109,18 +109,22 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
+  url: {
+    fontFamily: Fonts?.mono,
+    fontSize: 13,
+  },
   boton: {
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#8E8E93',
   },
   botonPresionado: {
     opacity: 0.6,
   },
   ayuda: {
     textAlign: 'center',
+    fontSize: 14,
   },
 });

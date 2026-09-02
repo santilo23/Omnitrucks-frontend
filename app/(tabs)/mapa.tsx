@@ -1,9 +1,10 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 /**
  * Pantalla del mapa con los camiones en curso.
@@ -11,15 +12,17 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
  * una vez que el backend exponga las posiciones de los viajes activos.
  */
 export default function MapaScreen() {
+  const textSecondary = useThemeColor({}, 'textSecondary');
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.texto}>
-          Mapa
-        </ThemedText>
-        <ThemedText type="default" themeColor="textSecondary" style={styles.texto}>
-          Acá van a verse los camiones en curso.
-        </ThemedText>
+        <View style={styles.contenido}>
+          <ThemedText type="subtitle">Mapa</ThemedText>
+          <ThemedText style={[styles.texto, { color: textSecondary }]}>
+            Acá van a verse los camiones en curso.
+          </ThemedText>
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
@@ -28,16 +31,16 @@ export default function MapaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
+  },
+  contenido: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
     gap: Spacing.two,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    paddingHorizontal: Spacing.four,
   },
   texto: {
     textAlign: 'center',

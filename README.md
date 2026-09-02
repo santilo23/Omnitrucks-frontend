@@ -26,7 +26,7 @@ La pantalla principal es un mapa con la posición de cada camión activo, que se
 
 | Componente | Tecnología |
 |---|---|
-| Framework | React Native 0.86 con Expo SDK 57 |
+| Framework | React Native 0.81 con Expo SDK 54 |
 | Lenguaje | TypeScript |
 | Navegación | Expo Router (basada en archivos) |
 | Estado del servidor | TanStack Query (React Query) |
@@ -41,6 +41,12 @@ La pantalla principal es un mapa con la posición de cada camión activo, que se
 
 - **Node.js 20 o superior** — verificar con `node --version`
 - **Expo Go** instalado en el iPhone (App Store)
+
+> **Sobre la versión del SDK.** El proyecto está fijado en **Expo SDK 54** a propósito.
+> Expo Go trae los módulos nativos compilados adentro, así que cada versión de la app
+> soporta un SDK puntual: si el proyecto usa uno más nuevo que el que soporta el Expo Go
+> instalado, falla con *"Project is incompatible with this version of Expo Go"*.
+> Antes de subir de SDK hay que confirmar que el Expo Go del dispositivo lo acompañe.
 - El **backend corriendo** y accesible desde el teléfono
 - La computadora y el teléfono **conectados a la misma red WiFi**
 
@@ -98,22 +104,23 @@ Para verificar rápido si el teléfono llega al backend, abrir `http://TU_IP:808
 ## Estructura del proyecto
 
 ```
-src/
-├── app/             Pantallas (rutas de Expo Router, basadas en archivos)
-│   ├── _layout.tsx  Layout raíz: tema y navegación por pestañas
-│   ├── index.tsx    Inicio
-│   └── mapa.tsx     Mapa de los camiones en curso
-├── api/             Cliente Axios e interceptores; una función por endpoint
-├── components/      Componentes reutilizables
-├── config/          Lectura de las variables de entorno
-├── constants/       Tema: colores, espaciados y tipografías
-├── context/         Contexto de autenticación
-├── hooks/           Hooks de datos y de seguimiento en vivo
-└── types/           Interfaces TypeScript espejo de los DTOs del backend
+app/                 Pantallas (rutas de Expo Router, basadas en archivos)
+├── _layout.tsx      Layout raíz: tema y navegación
+└── (tabs)/          Navegación principal por pestañas
+    ├── index.tsx    Inicio
+    └── mapa.tsx     Mapa de los camiones en curso
+
+api/                 Cliente Axios e interceptores; una función por endpoint
+components/          Componentes reutilizables
+config/              Lectura de las variables de entorno
+constants/           Tema: colores, espaciados y tipografías
+context/             Contexto de autenticación
+hooks/               Hooks de datos y de seguimiento en vivo
+types/               Interfaces TypeScript espejo de los DTOs del backend
 ```
 
-El alias `@/` apunta a `src/`, así que los imports se escriben `@/components/themed-text`
-en lugar de rutas relativas.
+El alias `@/` apunta a la raíz del proyecto, así que los imports se escriben
+`@/components/themed-text` en lugar de rutas relativas.
 
 ---
 
