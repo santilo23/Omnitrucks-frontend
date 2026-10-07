@@ -155,7 +155,7 @@ Por eso el modo chofer se implementa primero en primer plano (con la app abierta
 - [ ] Sesión real: JWT, almacenamiento seguro y navegación protegida
 - [ ] Listado de camiones y viajes desde la API
 - [x] Mapa con seguimiento en vivo
-- [ ] Detalle de viaje con recorrido y datos del envío
+- [x] Detalle de viaje con recorrido y datos del envío
 - [ ] Modo chofer: transmisión de la ubicación real
 - [ ] Actualización en tiempo real por WebSocket
 - [ ] Notificaciones y build de producción con EAS

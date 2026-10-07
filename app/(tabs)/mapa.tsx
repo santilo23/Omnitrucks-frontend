@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -6,15 +6,19 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import MapView from 'react-native-maps';
+import MapView, { Polyline } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { MarcadorCamion } from '@/components/marcador-camion';
+import { MarcadorParada } from '@/components/marcador-parada';
+import { TarjetaDetalleViaje } from '@/components/tarjeta-detalle-viaje';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, StatusColors } from '@/constants/theme';
 import { useUbicacionesActivas } from '@/hooks/use-ubicaciones-activas';
+import { useRecorrido } from '@/hooks/use-recorrido';
+import { useDetalleViaje } from '@/hooks/use-detalle-viaje';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 /** Región inicial centrada en el centro de Argentina (Buenos Aires / Santa Fe / Córdoba) */
@@ -32,26 +36,67 @@ export default function MapaScreen() {
   const textSecondary = useThemeColor({}, 'textSecondary');
   const tint = useThemeColor({}, 'tint');
 
+  const [viajeSeleccionadoId, setViajeSeleccionadoId] = useState<number | null>(null);
+
   const { ubicaciones, cargando, actualizando, hayError, reintentar } =
     useUbicacionesActivas({ intervaloMs: 5000 });
 
+  // Ubicación activa correspondiente al viaje seleccionado (si hay alguno)
+  const ubicacionSeleccionada = ubicaciones.find(
+    (u) => u.viajeId === viajeSeleccionadoId
+  );
+
+  // Consulta de la traza de recorrido y del detalle completo del viaje
+  const { coordenadas: trazaCoordenadas, posiciones: listaPosiciones } = useRecorrido({
+    viajeId: viajeSeleccionadoId,
+    intervaloMs: 5000,
+  });
+
+  const { viaje: detalleViaje } = useDetalleViaje(viajeSeleccionadoId);
+
   const hasFittedInitial = useRef(false);
 
-  // Ajustar cámara para encuadrar todos los camiones activos al cargar por primera vez
+  // Encuadrar flota al cargar por primera vez si no hay camión seleccionado
   useEffect(() => {
-    if (!hasFittedInitial.current && ubicaciones.length > 0 && mapRef.current && Platform.OS !== 'web') {
+    if (
+      !hasFittedInitial.current &&
+      !viajeSeleccionadoId &&
+      ubicaciones.length > 0 &&
+      mapRef.current &&
+      Platform.OS !== 'web'
+    ) {
       hasFittedInitial.current = true;
-      const coordenadas = ubicaciones.map((u) => ({
+      const coords = ubicaciones.map((u) => ({
         latitude: u.posicion.latitud,
         longitude: u.posicion.longitud,
       }));
 
-      mapRef.current.fitToCoordinates(coordenadas, {
-        edgePadding: { top: 80, right: 60, bottom: 80, left: 60 },
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 90, right: 60, bottom: 90, left: 60 },
         animated: true,
       });
     }
-  }, [ubicaciones]);
+  }, [ubicaciones, viajeSeleccionadoId]);
+
+  // Centrar la cámara en la posición actual del camión
+  const centrarEnCamion = useCallback(() => {
+    if (ubicacionSeleccionada && mapRef.current && Platform.OS !== 'web') {
+      mapRef.current.animateToRegion(
+        {
+          latitude: ubicacionSeleccionada.posicion.latitud,
+          longitude: ubicacionSeleccionada.posicion.longitud,
+          latitudeDelta: 0.15,
+          longitudeDelta: 0.15,
+        },
+        700
+      );
+    }
+  }, [ubicacionSeleccionada]);
+
+  // Al seleccionar un camión, encuadrar su trazado si ya tiene coordenadas
+  const seleccionarCamion = useCallback((viajeId: number) => {
+    setViajeSeleccionadoId(viajeId);
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -64,22 +109,43 @@ export default function MapaScreen() {
           showsUserLocation
           showsMyLocationButton
           showsCompass>
+          {/* Trazado (Polyline) del viaje seleccionado */}
+          {viajeSeleccionadoId != null && trazaCoordenadas.length > 1 && (
+            <Polyline
+              coordinates={trazaCoordenadas}
+              strokeColor="#0284C7"
+              strokeWidth={5}
+              lineCap="round"
+              lineJoin="round"
+            />
+          )}
+
+          {/* Marcadores de origen y destino del viaje seleccionado */}
+          {detalleViaje && (
+            <>
+              <MarcadorParada punto={detalleViaje.origen} tipo="origen" />
+              <MarcadorParada punto={detalleViaje.destino} tipo="destino" />
+            </>
+          )}
+
+          {/* Marcadores de todos los camiones activos */}
           {ubicaciones.map((ubicacion) => (
             <MarcadorCamion
               key={ubicacion.viajeId}
               ubicacion={ubicacion}
+              onPress={() => seleccionarCamion(ubicacion.viajeId)}
             />
           ))}
         </MapView>
       ) : (
-        /* Fallback web si se abre en navegador */
+        /* Fallback web */
         <View style={styles.webFallback}>
           <MaterialIcons name="map" size={48} color={tint} />
           <ThemedText type="subtitle" style={styles.webTitulo}>
             Vista de mapa nativa
           </ThemedText>
           <ThemedText style={[styles.webDescripcion, { color: textSecondary }]}>
-            Los mapas de react-native-maps se visualizan en la app móvil en tu iPhone / Android con Expo Go.
+            Los mapas y el trazado de recorrido con Polyline se visualizan en Expo Go en iOS/Android.
           </ThemedText>
           <ThemedText type="defaultSemiBold" style={{ marginTop: Spacing.two }}>
             {ubicaciones.length} camiones activos reportando coordenadas.
@@ -116,6 +182,7 @@ export default function MapaScreen() {
           <Pressable
             onPress={() => reintentar()}
             disabled={actualizando}
+            accessibilityLabel="Refrescar flota"
             style={({ pressed }) => [
               styles.botonRefrescar,
               { borderColor: border },
@@ -149,6 +216,19 @@ export default function MapaScreen() {
           </View>
         )}
       </SafeAreaView>
+
+      {/* Tarjeta flotante inferior con detalle del viaje seleccionado */}
+      {ubicacionSeleccionada && (
+        <SafeAreaView style={styles.overlayBottom} edges={['bottom']}>
+          <TarjetaDetalleViaje
+            ubicacion={ubicacionSeleccionada}
+            viaje={detalleViaje}
+            puntosRecorridos={listaPosiciones.length}
+            onCerrar={() => setViajeSeleccionadoId(null)}
+            onCentrar={centrarEnCamion}
+          />
+        </SafeAreaView>
+      )}
     </ThemedView>
   );
 }
@@ -164,6 +244,12 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: Spacing.three,
     gap: Spacing.two,
+  },
+  overlayBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   barraSuperior: {
     flexDirection: 'row',
