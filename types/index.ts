@@ -62,3 +62,25 @@ export interface ViajeResponse {
   llegadaReal: string | null;
   createdAt: string;
 }
+
+export type RolUsuario = 'ADMIN' | 'OPERADOR' | 'CHOFER' | 'CLIENTE';
+
+export interface UsuarioAutenticado {
+  email: string;
+  nombreCompleto: string;
+  rol: RolUsuario;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  tipo: string;
+  email: string;
+  nombreCompleto: string;
+  rol: RolUsuario;
+}
+
