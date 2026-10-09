@@ -196,6 +196,12 @@ export default function LoginScreen() {
                 style={[styles.chip, { borderColor: border }]}>
                 <ThemedText style={styles.chipTexto}>Admin (Martín)</ThemedText>
               </Pressable>
+
+              <Pressable
+                onPress={() => rellenarCredenciales('cliente@omnitrucks.com', 'cliente123')}
+                style={[styles.chip, { borderColor: border }]}>
+                <ThemedText style={styles.chipTexto}>Cliente (Acme S.A.)</ThemedText>
+              </Pressable>
             </View>
           </View>
 

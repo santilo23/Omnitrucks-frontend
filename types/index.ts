@@ -63,12 +63,23 @@ export interface ViajeResponse {
   createdAt: string;
 }
 
-export type RolUsuario = 'ADMIN' | 'OPERADOR' | 'CHOFER' | 'CLIENTE';
+export type RolUsuario = 'ADMIN' | 'CHOFER' | 'CLIENTE';
 
 export interface UsuarioAutenticado {
   email: string;
   nombreCompleto: string;
   rol: RolUsuario;
+}
+
+export interface UsuarioResponse {
+  id: number;
+  email: string;
+  nombre: string;
+  apellido: string;
+  nombreCompleto: string;
+  rol: RolUsuario;
+  activo: boolean;
+  createdAt: string;
 }
 
 export interface LoginRequest {
