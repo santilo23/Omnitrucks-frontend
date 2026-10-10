@@ -30,6 +30,7 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ title: 'Iniciar sesión' }} />
+            <Stack.Screen name="admin/flota" options={{ title: 'Gestión de Flota' }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />

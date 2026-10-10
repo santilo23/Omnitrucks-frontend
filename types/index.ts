@@ -95,3 +95,27 @@ export interface LoginResponse {
   rol: RolUsuario;
 }
 
+export type EstadoOperativoCamion = 'DISPONIBLE' | 'EN_TRANSITO' | 'INACTIVO';
+
+export type FiltroFlota = 'TODOS' | 'ACTIVOS' | 'INACTIVOS';
+
+export interface CamionFlotaResponse {
+  id: number;
+  patente: string;
+  marca: string;
+  modelo: string;
+  anio: number | null;
+  capacidadKg: number | null;
+  activo: boolean;
+  estadoOperativo: EstadoOperativoCamion;
+  createdAt: string;
+}
+
+export interface FlotaResumenResponse {
+  total: number;
+  activos: number;
+  inactivos: number;
+  disponibles: number;
+  enTransito: number;
+}
+

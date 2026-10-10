@@ -60,6 +60,20 @@ export default function InicioScreen() {
             </View>
 
             <View style={styles.filaAccionesUsuario}>
+              {usuario.rol === 'ADMIN' && (
+                <Pressable
+                  onPress={() => router.push('/admin/flota' as any)}
+                  style={({ pressed }) => [
+                    styles.botonUsuario,
+                    { backgroundColor: '#0284c7' },
+                    pressed && styles.botonPresionado,
+                  ]}>
+                  <ThemedText style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>
+                    Panel Flota
+                  </ThemedText>
+                </Pressable>
+              )}
+
               <Pressable
                 onPress={() => router.push('/(tabs)/mapa')}
                 style={({ pressed }) => [
@@ -68,7 +82,7 @@ export default function InicioScreen() {
                   pressed && styles.botonPresionado,
                 ]}>
                 <ThemedText style={{ color: background, fontWeight: '600', fontSize: 13 }}>
-                  Ver flota
+                  Ver mapa
                 </ThemedText>
               </Pressable>
 
