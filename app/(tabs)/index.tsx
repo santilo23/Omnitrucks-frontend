@@ -74,6 +74,20 @@ export default function InicioScreen() {
                 </Pressable>
               )}
 
+              {usuario.rol === 'CLIENTE' && (
+                <Pressable
+                  onPress={() => router.push('/cliente/seguimiento' as any)}
+                  style={({ pressed }) => [
+                    styles.botonUsuario,
+                    { backgroundColor: '#0284c7' },
+                    pressed && styles.botonPresionado,
+                  ]}>
+                  <ThemedText style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>
+                    Mis Envíos
+                  </ThemedText>
+                </Pressable>
+              )}
+
               <Pressable
                 onPress={() => router.push('/(tabs)/mapa')}
                 style={({ pressed }) => [

@@ -119,3 +119,60 @@ export interface FlotaResumenResponse {
   enTransito: number;
 }
 
+export interface PuntoPublico {
+  nombre: string;
+  latitud: number;
+  longitud: number;
+}
+
+export interface VehiculoPublico {
+  patente: string;
+  marca: string;
+  modelo: string;
+}
+
+export interface ChoferPublico {
+  nombre: string;
+}
+
+export interface UbicacionPublica {
+  latitud: number;
+  longitud: number;
+  registradoEn: string;
+}
+
+export interface SeguimientoClienteResponse {
+  codigoSeguimiento: string;
+  estado: EstadoViaje;
+  descripcionCarga: string | null;
+  origen: PuntoPublico;
+  destino: PuntoPublico;
+  vehiculo: VehiculoPublico;
+  chofer: ChoferPublico;
+  ubicacionActual: UbicacionPublica | null;
+  salidaProgramada: string | null;
+  salidaReal: string | null;
+  llegadaEstimada: string | null;
+  llegadaReal: string | null;
+}
+
+export interface EnvioClienteResumenResponse {
+  codigoSeguimiento: string;
+  estado: EstadoViaje;
+  descripcionCarga: string | null;
+  origenNombre: string;
+  destinoNombre: string;
+  salidaProgramada: string | null;
+  llegadaEstimada: string | null;
+}
+
+export interface UbicacionSeguimientoResponse {
+  codigoSeguimiento: string;
+  estado: EstadoViaje;
+  latitud: number;
+  longitud: number;
+  velocidadKmh: number | null;
+  rumboGrados: number | null;
+  registradoEn: string;
+}
+

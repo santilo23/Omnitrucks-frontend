@@ -67,7 +67,41 @@ export default function MapaScreen() {
     );
   }
 
-  // Usuario autenticado: renderiza el mapa en vivo
+  // Si es un cliente, su acceso al mapa está restringido al vehículo asignado a su carga
+  if (usuario.rol === 'CLIENTE') {
+    return (
+      <ThemedView style={[styles.container, styles.centrado]}>
+        <View style={[styles.tarjetaBloqueo, { backgroundColor: card, borderColor: border }]}>
+          <View style={[styles.iconoContenedor, { backgroundColor: '#0284c722' }]}>
+            <IconSymbol size={36} name="truck.box.fill" color="#0284c7" />
+          </View>
+
+          <ThemedText type="subtitle" style={styles.textoCentro}>
+            Seguimiento de tu Carga
+          </ThemedText>
+
+          <ThemedText style={[styles.descripcion, { color: textSecondary }]}>
+            El mapa general de la flota corporativa es exclusivo para operaciones. Podés seguir en tiempo real la ubicación de tu envío asignado desde tu portal.
+          </ThemedText>
+
+          <Pressable
+            onPress={() => router.push('/cliente/seguimiento' as any)}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.boton,
+              { backgroundColor: '#0284c7' },
+              pressed && styles.botonPresionado,
+            ]}>
+            <ThemedText type="defaultSemiBold" style={{ color: '#ffffff' }}>
+              Ver mi envío en vivo
+            </ThemedText>
+          </Pressable>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  // Usuario autenticado (ADMIN o CHOFER): renderiza el mapa en vivo
   return <MapaFlota />;
 }
 
