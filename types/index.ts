@@ -69,6 +69,7 @@ export interface UsuarioAutenticado {
   email: string;
   nombreCompleto: string;
   rol: RolUsuario;
+  debeCambiarPassword?: boolean;
 }
 
 export interface UsuarioResponse {
@@ -79,6 +80,7 @@ export interface UsuarioResponse {
   nombreCompleto: string;
   rol: RolUsuario;
   activo: boolean;
+  debeCambiarPassword?: boolean;
   createdAt: string;
 }
 
@@ -93,6 +95,7 @@ export interface LoginResponse {
   email: string;
   nombreCompleto: string;
   rol: RolUsuario;
+  debeCambiarPassword?: boolean;
 }
 
 export type EstadoOperativoCamion = 'DISPONIBLE' | 'EN_TRANSITO' | 'INACTIVO';
@@ -274,5 +277,17 @@ export interface ViajeMonitoreoAdminResponse {
   velocidadKmh: number;
   rumboGrados: number;
   ultimaActualizacion: string;
+}
+
+export interface CrearClienteRequest {
+  nombre: string;
+  apellido: string;
+  email: string;
+  passwordProvisoria: string;
+}
+
+export interface CambiarPasswordRequest {
+  passwordActual: string;
+  nuevaPassword: string;
 }
 

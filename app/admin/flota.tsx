@@ -18,8 +18,11 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   asignarViajeAdmin,
   crearChoferAdmin,
+  crearClienteAdmin,
+  finalizarViajeAdmin,
   generarViajeSimuladoDemoAdmin,
   listarChoferesAdmin,
+  listarClientesAdmin,
   obtenerFlotaAdmin,
   obtenerResumenFlotaAdmin,
   obtenerViajesActivosAdmin,
@@ -32,11 +35,12 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import type {
   AsignarViajeAdminRequest,
   CrearChoferRequest,
+  CrearClienteRequest,
   EstadoOperativoCamion,
   FiltroFlota,
 } from '@/types';
 
-type PestanaAdmin = 'EN_RUTA' | 'CAMIONES' | 'CHOFERES';
+type PestanaAdmin = 'EN_RUTA' | 'CAMIONES' | 'CHOFERES' | 'CLIENTES';
 
 const RUTAS_PREDEFINIDAS = [
   {
@@ -75,6 +79,7 @@ export default function AdminFlotaScreen() {
 
   // Modales
   const [modalChoferVisible, setModalChoferVisible] = useState(false);
+  const [modalClienteVisible, setModalClienteVisible] = useState(false);
   const [modalViajeVisible, setModalViajeVisible] = useState(false);
 
   // Formulario Chofer
@@ -84,9 +89,17 @@ export default function AdminFlotaScreen() {
   const [passwordChofer, setPasswordChofer] = useState('');
   const [mensajeChofer, setMensajeChofer] = useState<{ texto: string; error: boolean } | null>(null);
 
+  // Formulario Cliente
+  const [nombreCliente, setNombreCliente] = useState('');
+  const [apellidoCliente, setApellidoCliente] = useState('');
+  const [emailCliente, setEmailCliente] = useState('');
+  const [passwordProvisoriaCliente, setPasswordProvisoriaCliente] = useState('');
+  const [mensajeCliente, setMensajeCliente] = useState<{ texto: string; error: boolean } | null>(null);
+
   // Formulario Asignar Viaje
   const [camionSeleccionadoId, setCamionSeleccionadoId] = useState<number | null>(null);
   const [choferSeleccionadoId, setChoferSeleccionadoId] = useState<number | null>(null);
+  const [clienteSeleccionadoId, setClienteSeleccionadoId] = useState<number | null>(null);
   const [rutaIndex, setRutaIndex] = useState(0);
   const [descripcionCarga, setDescripcionCarga] = useState(RUTAS_PREDEFINIDAS[0].carga);
   const [iniciarInmediatamente, setIniciarInmediatamente] = useState(true);
@@ -127,6 +140,19 @@ export default function AdminFlotaScreen() {
     enabled: usuario?.rol === 'ADMIN',
   });
 
+  const { data: clientes = [], refetch: refetchClientes } = useQuery({
+    queryKey: ['admin-clientes'],
+    queryFn: listarClientesAdmin,
+    enabled: usuario?.rol === 'ADMIN',
+  });
+
+  // Choferes y Camiones disponibles (no asignados actualmente a un viaje activo en ruta)
+  const choferesEnRutaIds = new Set(viajesActivos.map((v) => v.choferId).filter((id): id is number => id !== null));
+  const camionesEnRutaIds = new Set(viajesActivos.map((v) => v.camionId).filter((id): id is number => id !== null));
+
+  const camionesDisponibles = camiones.filter((c) => c.activo && !camionesEnRutaIds.has(c.id));
+  const choferesDisponibles = choferes.filter((ch) => !choferesEnRutaIds.has(ch.id));
+
   // Mutación: Crear Chofer
   const crearChoferMutation = useMutation({
     mutationFn: (datos: CrearChoferRequest) => crearChoferAdmin(datos),
@@ -144,6 +170,26 @@ export default function AdminFlotaScreen() {
     onError: (err: any) => {
       const msg = err.response?.data?.detail || 'Error al dar de alta el chofer.';
       setMensajeChofer({ texto: msg, error: true });
+    },
+  });
+
+  // Mutación: Crear Cliente con Clave Provisoria
+  const crearClienteMutation = useMutation({
+    mutationFn: (datos: CrearClienteRequest) => crearClienteAdmin(datos),
+    onSuccess: (nuevo) => {
+      setMensajeCliente({
+        texto: `¡Cliente ${nuevo.nombreCompleto} creado con éxito! Clave provisoria asignada. Deberá cambiarla al iniciar sesión.`,
+        error: false,
+      });
+      setNombreCliente('');
+      setApellidoCliente('');
+      setEmailCliente('');
+      setPasswordProvisoriaCliente('');
+      queryClient.invalidateQueries({ queryKey: ['admin-clientes'] });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.detail || 'Error al dar de alta el cliente.';
+      setMensajeCliente({ texto: msg, error: true });
     },
   });
 
@@ -182,12 +228,42 @@ export default function AdminFlotaScreen() {
     },
   });
 
+  // Mutación: Finalizar Viaje
+  const finalizarViajeMutation = useMutation({
+    mutationFn: (viajeId: number) => finalizarViajeAdmin(viajeId),
+    onSuccess: () => {
+      setNotificacionSimulacion('Viaje finalizado exitosamente. El camión y chofer han quedado disponibles.');
+      queryClient.invalidateQueries({ queryKey: ['admin-viajes-activos'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-flota'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-flota-resumen'] });
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.detail || 'No se pudo finalizar el viaje.');
+    },
+  });
+
+  const handleFinalizarViaje = (viajeId: number, choferNombre: string, camionPatente: string) => {
+    Alert.alert(
+      'Finalizar Viaje',
+      `¿Deseas finalizar el viaje del chofer ${choferNombre} (Camión ${camionPatente})? El camión y el chofer quedarán disponibles para nuevos viajes.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Finalizar',
+          style: 'destructive',
+          onPress: () => finalizarViajeMutation.mutate(viajeId),
+        },
+      ]
+    );
+  };
+
   const onRefresh = async () => {
     await Promise.all([
       refetchResumen(),
       refetchViajes(),
       refetchCamiones(),
       refetchChoferes(),
+      refetchClientes(),
     ]);
   };
 
@@ -204,15 +280,37 @@ export default function AdminFlotaScreen() {
     });
   };
 
+  const handleCrearCliente = () => {
+    if (!nombreCliente.trim() || !apellidoCliente.trim() || !emailCliente.trim() || !passwordProvisoriaCliente.trim()) {
+      setMensajeCliente({ texto: 'Por favor completá todos los campos.', error: true });
+      return;
+    }
+    crearClienteMutation.mutate({
+      nombre: nombreCliente.trim(),
+      apellido: apellidoCliente.trim(),
+      email: emailCliente.trim(),
+      passwordProvisoria: passwordProvisoriaCliente,
+    });
+  };
+
   const handleAsignarViaje = () => {
     if (!camionSeleccionadoId || !choferSeleccionadoId) {
       setMensajeViaje({ texto: 'Debes seleccionar un camión y un chofer.', error: true });
+      return;
+    }
+    if (camionesEnRutaIds.has(camionSeleccionadoId)) {
+      setMensajeViaje({ texto: 'El camión seleccionado ya se encuentra en viaje activo.', error: true });
+      return;
+    }
+    if (choferesEnRutaIds.has(choferSeleccionadoId)) {
+      setMensajeViaje({ texto: 'El chofer seleccionado ya tiene un viaje activo en curso.', error: true });
       return;
     }
     const ruta = RUTAS_PREDEFINIDAS[rutaIndex];
     asignarViajeMutation.mutate({
       camionId: camionSeleccionadoId,
       choferId: choferSeleccionadoId,
+      clienteId: clienteSeleccionadoId ?? undefined,
       origenNombre: ruta.origen.nombre,
       origenLat: ruta.origen.lat,
       origenLon: ruta.origen.lon,
@@ -359,6 +457,20 @@ export default function AdminFlotaScreen() {
           <MaterialIcons name="person-add" size={18} color="#FFFFFF" />
           <ThemedText style={styles.botonAccionTexto}>Agregar Chofer</ThemedText>
         </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setMensajeCliente(null);
+            setModalClienteVisible(true);
+          }}
+          style={({ pressed }) => [
+            styles.botonAccion,
+            { backgroundColor: '#0891b2' },
+            pressed && styles.botonPresionado,
+          ]}>
+          <MaterialIcons name="badge" size={18} color="#FFFFFF" />
+          <ThemedText style={styles.botonAccionTexto}>Agregar Cliente</ThemedText>
+        </Pressable>
       </View>
 
       {/* Banner de notificación cuando se simula un viaje */}
@@ -389,7 +501,7 @@ export default function AdminFlotaScreen() {
               styles.pestanaTexto,
               { color: pestanaActiva === 'EN_RUTA' ? tint : textSecondary, fontWeight: pestanaActiva === 'EN_RUTA' ? '700' : '500' },
             ]}>
-            Choferes en Ruta ({viajesActivos.length})
+            En Ruta ({viajesActivos.length})
           </ThemedText>
         </Pressable>
 
@@ -406,7 +518,7 @@ export default function AdminFlotaScreen() {
               styles.pestanaTexto,
               { color: pestanaActiva === 'CAMIONES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CAMIONES' ? '700' : '500' },
             ]}>
-            Flota de Camiones
+            Camiones
           </ThemedText>
         </Pressable>
 
@@ -424,6 +536,23 @@ export default function AdminFlotaScreen() {
               { color: pestanaActiva === 'CHOFERES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CHOFERES' ? '700' : '500' },
             ]}>
             Choferes ({choferes.length})
+          </ThemedText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setPestanaActiva('CLIENTES')}
+          style={[styles.pestana, pestanaActiva === 'CLIENTES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
+          <MaterialIcons
+            name="business"
+            size={18}
+            color={pestanaActiva === 'CLIENTES' ? tint : textSecondary}
+          />
+          <ThemedText
+            style={[
+              styles.pestanaTexto,
+              { color: pestanaActiva === 'CLIENTES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CLIENTES' ? '700' : '500' },
+            ]}>
+            Clientes ({clientes.length})
           </ThemedText>
         </Pressable>
       </View>
@@ -507,19 +636,34 @@ export default function AdminFlotaScreen() {
                   </View>
                 </View>
 
-                {/* Botón para ver en Mapa */}
-                <Pressable
-                  onPress={() => router.push('/(tabs)/mapa')}
-                  style={({ pressed }) => [
-                    styles.botonVerMapa,
-                    { borderColor: tint },
-                    pressed && styles.botonPresionado,
-                  ]}>
-                  <MaterialIcons name="map" size={16} color={tint} />
-                  <ThemedText style={{ color: tint, fontWeight: '600', fontSize: 13 }}>
-                    Ver camión en el Mapa de la Flota
-                  </ThemedText>
-                </Pressable>
+                {/* Acciones del Viaje: Ver en Mapa y Finalizar */}
+                <View style={styles.filaAccionesTarjeta}>
+                  <Pressable
+                    onPress={() => router.push('/(tabs)/mapa')}
+                    style={({ pressed }) => [
+                      styles.botonVerMapa,
+                      { borderColor: tint },
+                      pressed && styles.botonPresionado,
+                    ]}>
+                    <MaterialIcons name="map" size={16} color={tint} />
+                    <ThemedText style={{ color: tint, fontWeight: '600', fontSize: 13 }}>
+                      Ver en Mapa
+                    </ThemedText>
+                  </Pressable>
+
+                  <Pressable
+                    disabled={finalizarViajeMutation.isPending}
+                    onPress={() => handleFinalizarViaje(viaje.viajeId, viaje.choferNombre, viaje.camionPatente)}
+                    style={({ pressed }) => [
+                      styles.botonFinalizarViaje,
+                      pressed && styles.botonPresionado,
+                    ]}>
+                    <MaterialIcons name="flag" size={16} color="#dc2626" />
+                    <ThemedText style={{ color: '#dc2626', fontWeight: '600', fontSize: 13 }}>
+                      Finalizar Viaje
+                    </ThemedText>
+                  </Pressable>
+                </View>
               </View>
             ))
           )}
@@ -609,6 +753,56 @@ export default function AdminFlotaScreen() {
                 <ThemedText style={{ color: '#059669', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
                   Cuenta activa para iniciar sesión
                 </ThemedText>
+              </View>
+            </View>
+          )}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={tint} />}
+        />
+      )}
+
+      {pestanaActiva === 'CLIENTES' && (
+        <FlatList
+          data={clientes}
+          keyExtractor={(item) => item.id.toString()}
+          ListEmptyComponent={
+            <View style={[styles.tarjetaVacia, { backgroundColor: card, borderColor: border }]}>
+              <MaterialIcons name="business" size={40} color={textSecondary} />
+              <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
+                No hay clientes registrados
+              </ThemedText>
+              <ThemedText style={{ color: textSecondary, textAlign: 'center', fontSize: 13 }}>
+                {'Presioná "Agregar Cliente" para dar de alta clientes con clave provisoria.'}
+              </ThemedText>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={[styles.tarjetaChoferItem, { backgroundColor: card, borderColor: border }]}>
+              <View style={[styles.avatarChoferMini, { backgroundColor: '#0891b222' }]}>
+                <MaterialIcons name="business" size={24} color="#0891b2" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>
+                  {item.nombreCompleto}
+                </ThemedText>
+                <ThemedText style={{ color: textSecondary, fontSize: 13 }}>
+                  {item.email}
+                </ThemedText>
+                {item.debeCambiarPassword ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <MaterialIcons name="lock-clock" size={14} color="#d97706" />
+                    <ThemedText style={{ color: '#d97706', fontSize: 11, fontWeight: '700' }}>
+                      Clave provisoria asignada (debe cambiarla al ingresar)
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <MaterialIcons name="check-circle" size={14} color="#059669" />
+                    <ThemedText style={{ color: '#059669', fontSize: 11, fontWeight: '600' }}>
+                      Contraseña definitiva establecida
+                    </ThemedText>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -730,46 +924,58 @@ export default function AdminFlotaScreen() {
 
             <ScrollView contentContainerStyle={{ gap: Spacing.two }}>
               {/* Selector de Camión */}
-              <ThemedText style={styles.labelInput}>1. Seleccionar Camión</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                {camiones.filter((c) => c.activo).map((c) => {
-                  const sel = camionSeleccionadoId === c.id;
-                  return (
-                    <Pressable
-                      key={c.id}
-                      onPress={() => setCamionSeleccionadoId(c.id)}
-                      style={[
-                        styles.chipSelector,
-                        { borderColor: sel ? '#059669' : border, backgroundColor: sel ? '#05966922' : background },
-                      ]}>
-                      <ThemedText style={{ fontWeight: sel ? '700' : '500', fontSize: 12 }}>
-                        {c.patente} ({c.marca})
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <ThemedText style={styles.labelInput}>1. Seleccionar Camión (Disponibles)</ThemedText>
+              {camionesDisponibles.length === 0 ? (
+                <ThemedText style={{ color: textSecondary, fontSize: 12, marginVertical: 4 }}>
+                  No hay camiones disponibles en este momento (todos están en viaje activo).
+                </ThemedText>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                  {camionesDisponibles.map((c) => {
+                    const sel = camionSeleccionadoId === c.id;
+                    return (
+                      <Pressable
+                        key={c.id}
+                        onPress={() => setCamionSeleccionadoId(c.id)}
+                        style={[
+                          styles.chipSelector,
+                          { borderColor: sel ? '#059669' : border, backgroundColor: sel ? '#05966922' : background },
+                        ]}>
+                        <ThemedText style={{ fontWeight: sel ? '700' : '500', fontSize: 12 }}>
+                          {c.patente} ({c.marca})
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
 
               {/* Selector de Chofer */}
-              <ThemedText style={styles.labelInput}>2. Seleccionar Chofer</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                {choferes.map((ch) => {
-                  const sel = choferSeleccionadoId === ch.id;
-                  return (
-                    <Pressable
-                      key={ch.id}
-                      onPress={() => setChoferSeleccionadoId(ch.id)}
-                      style={[
-                        styles.chipSelector,
-                        { borderColor: sel ? '#7c3aed' : border, backgroundColor: sel ? '#7c3aed22' : background },
-                      ]}>
-                      <ThemedText style={{ fontWeight: sel ? '700' : '500', fontSize: 12 }}>
-                        {ch.nombreCompleto}
-                      </ThemedText>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <ThemedText style={styles.labelInput}>2. Seleccionar Chofer (Disponibles)</ThemedText>
+              {choferesDisponibles.length === 0 ? (
+                <ThemedText style={{ color: textSecondary, fontSize: 12, marginVertical: 4 }}>
+                  No hay choferes disponibles en este momento (todos están en viaje activo).
+                </ThemedText>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                  {choferesDisponibles.map((ch) => {
+                    const sel = choferSeleccionadoId === ch.id;
+                    return (
+                      <Pressable
+                        key={ch.id}
+                        onPress={() => setChoferSeleccionadoId(ch.id)}
+                        style={[
+                          styles.chipSelector,
+                          { borderColor: sel ? '#7c3aed' : border, backgroundColor: sel ? '#7c3aed22' : background },
+                        ]}>
+                        <ThemedText style={{ fontWeight: sel ? '700' : '500', fontSize: 12 }}>
+                          {ch.nombreCompleto}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
 
               {/* Selector de Ruta */}
               <ThemedText style={styles.labelInput}>3. Seleccionar Itinerario</ThemedText>
@@ -803,6 +1009,40 @@ export default function AdminFlotaScreen() {
                 style={[styles.input, { borderColor: border, color: tint }]}
               />
 
+              {/* Selector de Cliente (Opcional) */}
+              <ThemedText style={styles.labelInput}>4. Asignar a Cliente (Opcional)</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+                <Pressable
+                  onPress={() => setClienteSeleccionadoId(null)}
+                  style={[
+                    styles.chipSelector,
+                    {
+                      borderColor: clienteSeleccionadoId === null ? '#0891b2' : border,
+                      backgroundColor: clienteSeleccionadoId === null ? '#0891b222' : background,
+                    },
+                  ]}>
+                  <ThemedText style={{ fontWeight: clienteSeleccionadoId === null ? '700' : '500', fontSize: 12 }}>
+                    Sin asignar (vincular con código)
+                  </ThemedText>
+                </Pressable>
+                {clientes.map((cl) => {
+                  const sel = clienteSeleccionadoId === cl.id;
+                  return (
+                    <Pressable
+                      key={cl.id}
+                      onPress={() => setClienteSeleccionadoId(cl.id)}
+                      style={[
+                        styles.chipSelector,
+                        { borderColor: sel ? '#0891b2' : border, backgroundColor: sel ? '#0891b222' : background },
+                      ]}>
+                      <ThemedText style={{ fontWeight: sel ? '700' : '500', fontSize: 12 }}>
+                        {cl.nombreCompleto}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
               <Pressable
                 onPress={() => setIniciarInmediatamente(!iniciarInmediatamente)}
                 style={styles.checkFila}>
@@ -829,6 +1069,94 @@ export default function AdminFlotaScreen() {
                 ) : (
                   <ThemedText style={{ color: '#FFFFFF', fontWeight: '700' }}>
                     Confirmar y Asignar Viaje
+                  </ThemedText>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 3: ALTA DE CLIENTE CON CLAVE PROVISORIA */}
+      <Modal visible={modalClienteVisible} animationType="slide" transparent>
+        <View style={styles.modalFondo}>
+          <View style={[styles.modalContenido, { backgroundColor: card, borderColor: border }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle">Agregar Nuevo Cliente</ThemedText>
+              <Pressable onPress={() => setModalClienteVisible(false)}>
+                <MaterialIcons name="close" size={24} color={textSecondary} />
+              </Pressable>
+            </View>
+
+            <ThemedText style={[styles.modalDescripcion, { color: textSecondary }]}>
+              Ingresá los datos del cliente y asignale una clave provisoria. Al iniciar sesión por primera vez, el sistema le solicitará cambiarla obligatoriamente.
+            </ThemedText>
+
+            {mensajeCliente && (
+              <View
+                style={[
+                  styles.mensajeAlerta,
+                  { backgroundColor: mensajeCliente.error ? '#ef444422' : '#22c55e22' },
+                ]}>
+                <ThemedText style={{ color: mensajeCliente.error ? '#dc2626' : '#15803d', fontSize: 13 }}>
+                  {mensajeCliente.texto}
+                </ThemedText>
+              </View>
+            )}
+
+            <ScrollView contentContainerStyle={{ gap: Spacing.two }}>
+              <ThemedText style={styles.labelInput}>Nombre / Empresa</ThemedText>
+              <TextInput
+                value={nombreCliente}
+                onChangeText={setNombreCliente}
+                placeholder="Ej. Distribuidora Central"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Apellido / Sucursal</ThemedText>
+              <TextInput
+                value={apellidoCliente}
+                onChangeText={setApellidoCliente}
+                placeholder="Ej. S.A. o Buenos Aires"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Email (usuario para login)</ThemedText>
+              <TextInput
+                value={emailCliente}
+                onChangeText={setEmailCliente}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="contacto@cliente.com"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Clave provisoria</ThemedText>
+              <TextInput
+                value={passwordProvisoriaCliente}
+                onChangeText={setPasswordProvisoriaCliente}
+                secureTextEntry
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <Pressable
+                onPress={handleCrearCliente}
+                disabled={crearClienteMutation.isPending}
+                style={({ pressed }) => [
+                  styles.botonModalSubmit,
+                  { backgroundColor: '#0891b2' },
+                  pressed && styles.botonPresionado,
+                ]}>
+                {crearClienteMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <ThemedText style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                    Guardar Cliente con Clave Provisoria
                   </ThemedText>
                 )}
               </Pressable>
@@ -1008,7 +1336,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 2,
   },
+  filaAccionesTarjeta: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
   botonVerMapa: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1016,6 +1350,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.one,
     borderWidth: StyleSheet.hairlineWidth,
+  },
+  botonFinalizarViaje: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.one,
+    borderWidth: 1,
+    borderColor: '#dc2626',
+    backgroundColor: '#dc262615',
   },
   filtrosContainer: {
     flexDirection: 'row',

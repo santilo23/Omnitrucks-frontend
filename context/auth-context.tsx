@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { loginApi } from '@/api/auth';
+import { cambiarPasswordApi, loginApi } from '@/api/auth';
 import { TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '@/api/cliente';
 import { storage } from '@/lib/storage';
 import type { LoginRequest, UsuarioAutenticado } from '@/types';
@@ -16,7 +16,8 @@ interface AuthContextType {
   usuario: UsuarioAutenticado | null;
   token: string | null;
   isLoading: boolean;
-  login: (credenciales: LoginRequest) => Promise<void>;
+  login: (credenciales: LoginRequest) => Promise<UsuarioAutenticado>;
+  cambiarPassword: (passwordActual: string, nuevaPassword: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: data.email,
       nombreCompleto: data.nombreCompleto,
       rol: data.rol,
+      debeCambiarPassword: data.debeCambiarPassword ?? false,
     };
 
     await storage.setItem(TOKEN_STORAGE_KEY, data.token);
@@ -63,6 +65,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setToken(data.token);
     setUsuario(user);
+    return user;
+  }, []);
+
+  const cambiarPassword = useCallback(async (passwordActual: string, nuevaPassword: string) => {
+    await cambiarPasswordApi({ passwordActual, nuevaPassword });
+
+    setUsuario((prev) => {
+      if (!prev) return null;
+      const actualizado: UsuarioAutenticado = {
+        ...prev,
+        debeCambiarPassword: false,
+      };
+      storage.setItem(USER_STORAGE_KEY, JSON.stringify(actualizado)).catch(() => {});
+      return actualizado;
+    });
   }, []);
 
   const logout = useCallback(async () => {
@@ -82,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         isLoading,
         login,
+        cambiarPassword,
         logout,
       }}>
       {children}

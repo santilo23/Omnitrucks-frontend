@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { isAxiosError } from 'axios';
 
 import {
   obtenerMisEnvios,
@@ -30,10 +32,19 @@ import type {
 
 export default function ClienteSeguimientoScreen() {
   const router = useRouter();
-  const { usuario, isLoading: isAuthLoading } = useAuth();
+  const { usuario, cambiarPassword, isLoading: isAuthLoading } = useAuth();
 
   const [codigoInput, setCodigoInput] = useState('');
   const [codigoBuscado, setCodigoBuscado] = useState<string | null>(null);
+
+  // Estado para modal de cambio de contraseña
+  const [modalPasswordVisible, setModalPasswordVisible] = useState(false);
+  const [passwordActual, setPasswordActual] = useState('');
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarPassword, setConfirmarPassword] = useState('');
+  const [cargandoPassword, setCargandoPassword] = useState(false);
+  const [errorPassword, setErrorPassword] = useState<string | null>(null);
+  const [exitoPassword, setExitoPassword] = useState<string | null>(null);
 
   const card = useThemeColor({}, 'card');
   const border = useThemeColor({}, 'border');
@@ -82,12 +93,60 @@ export default function ClienteSeguimientoScreen() {
     const limpio = codigoInput.trim().toUpperCase();
     if (limpio) {
       setCodigoBuscado(limpio);
+      // Tras buscar y potencialmente auto-vincular el viaje no asignado, refrescamos mis envíos
+      setTimeout(() => {
+        refetchMisEnvios();
+      }, 1000);
     }
   };
 
   const onSeleccionarEnvio = (codigo: string) => {
     setCodigoInput(codigo);
     setCodigoBuscado(codigo);
+  };
+
+  const manejarCambioPasswordCliente = async () => {
+    setErrorPassword(null);
+    setExitoPassword(null);
+
+    if (!passwordActual) {
+      setErrorPassword('Ingresá tu contraseña actual / provisoria.');
+      return;
+    }
+    if (!nuevaPassword || nuevaPassword.length < 6) {
+      setErrorPassword('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (nuevaPassword !== confirmarPassword) {
+      setErrorPassword('Las nuevas contraseñas no coinciden.');
+      return;
+    }
+    if (nuevaPassword === passwordActual) {
+      setErrorPassword('La nueva contraseña no puede ser idéntica a la anterior.');
+      return;
+    }
+
+    setCargandoPassword(true);
+    try {
+      await cambiarPassword(passwordActual, nuevaPassword);
+      setExitoPassword('¡Contraseña actualizada con éxito!');
+      setPasswordActual('');
+      setNuevaPassword('');
+      setConfirmarPassword('');
+      setTimeout(() => setModalPasswordVisible(false), 1200);
+    } catch (err: unknown) {
+      if (isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setErrorPassword('La contraseña actual es incorrecta.');
+        } else {
+          setErrorPassword(err.response?.data?.detail || 'Error al actualizar la contraseña.');
+        }
+      } else {
+        setErrorPassword('Error inesperado al actualizar la contraseña.');
+      }
+    } finally {
+      setCargandoPassword(false);
+    }
   };
 
   if (isAuthLoading) {
@@ -208,6 +267,52 @@ export default function ClienteSeguimientoScreen() {
             tintColor={tint}
           />
         }>
+        {/* Banner de clave provisoria pendiente */}
+        {usuario?.debeCambiarPassword && (
+          <View style={[styles.bannerProvisoria, { backgroundColor: '#d9770618', borderColor: '#d97706' }]}>
+            <MaterialIcons name="lock-clock" size={20} color="#d97706" />
+            <ThemedText style={{ color: '#d97706', flex: 1, fontSize: 13, fontWeight: '600' }}>
+              Iniciaste sesión con una clave provisoria. Por favor, actualizala por tu seguridad.
+            </ThemedText>
+            <Pressable
+              onPress={() => setModalPasswordVisible(true)}
+              style={({ pressed }) => [
+                styles.botonAccionBanner,
+                pressed && styles.botonPresionado,
+              ]}>
+              <ThemedText style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Cambiar</ThemedText>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Encabezado del Cliente y Acceso a Cambio de Contraseña */}
+        <View style={[styles.filaHeaderUsuario, { backgroundColor: card, borderColor: border }]}>
+          <View style={{ flex: 1 }}>
+            <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>
+              {usuario?.nombreCompleto}
+            </ThemedText>
+            <ThemedText style={{ color: textSecondary, fontSize: 13 }}>
+              {usuario?.email}
+            </ThemedText>
+          </View>
+          <Pressable
+            onPress={() => {
+              setErrorPassword(null);
+              setExitoPassword(null);
+              setModalPasswordVisible(true);
+            }}
+            style={({ pressed }) => [
+              styles.botonCambiarClave,
+              { borderColor: border },
+              pressed && styles.botonPresionado,
+            ]}>
+            <MaterialIcons name="lock-outline" size={16} color={tint} />
+            <ThemedText style={{ color: tint, fontSize: 12, fontWeight: '600' }}>
+              Cambiar Clave
+            </ThemedText>
+          </Pressable>
+        </View>
+
         {/* Cabecera y buscador por código de seguimiento */}
         <View style={[styles.tarjetaBuscador, { backgroundColor: card, borderColor: border }]}>
           <ThemedText type="defaultSemiBold">Rastreo de Envío por Código</ThemedText>
@@ -385,6 +490,89 @@ export default function ClienteSeguimientoScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* MODAL DE CAMBIO DE CONTRASEÑA */}
+      <Modal visible={modalPasswordVisible} animationType="slide" transparent>
+        <View style={styles.modalFondo}>
+          <View style={[styles.modalContenido, { backgroundColor: card, borderColor: border }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle">Cambiar Contraseña</ThemedText>
+              <Pressable onPress={() => setModalPasswordVisible(false)}>
+                <MaterialIcons name="close" size={24} color={textSecondary} />
+              </Pressable>
+            </View>
+
+            <ThemedText style={[styles.modalDescripcion, { color: textSecondary }]}>
+              Ingresá tu contraseña provisoria o actual, y definí tu nueva contraseña definitiva.
+            </ThemedText>
+
+            {errorPassword && (
+              <View style={[styles.mensajeAlerta, { backgroundColor: '#ef444422' }]}>
+                <ThemedText style={{ color: '#dc2626', fontSize: 13 }}>
+                  {errorPassword}
+                </ThemedText>
+              </View>
+            )}
+
+            {exitoPassword && (
+              <View style={[styles.mensajeAlerta, { backgroundColor: '#22c55e22' }]}>
+                <ThemedText style={{ color: '#15803d', fontSize: 13 }}>
+                  {exitoPassword}
+                </ThemedText>
+              </View>
+            )}
+
+            <ScrollView contentContainerStyle={{ gap: Spacing.two }}>
+              <ThemedText style={styles.labelInput}>Contraseña actual / provisoria</ThemedText>
+              <TextInput
+                value={passwordActual}
+                onChangeText={setPasswordActual}
+                secureTextEntry
+                placeholder="••••••"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Nueva contraseña (mínimo 6 caracteres)</ThemedText>
+              <TextInput
+                value={nuevaPassword}
+                onChangeText={setNuevaPassword}
+                secureTextEntry
+                placeholder="Nueva clave"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Confirmar nueva contraseña</ThemedText>
+              <TextInput
+                value={confirmarPassword}
+                onChangeText={setConfirmarPassword}
+                secureTextEntry
+                placeholder="Repetir nueva clave"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <Pressable
+                onPress={manejarCambioPasswordCliente}
+                disabled={cargandoPassword}
+                style={({ pressed }) => [
+                  styles.botonModalSubmit,
+                  { backgroundColor: tint },
+                  pressed && styles.botonPresionado,
+                ]}>
+                {cargandoPassword ? (
+                  <ActivityIndicator color={background} />
+                ) : (
+                  <ThemedText style={{ color: background, fontWeight: '700' }}>
+                    Guardar Nueva Contraseña
+                  </ThemedText>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -626,5 +814,82 @@ const styles = StyleSheet.create({
   },
   botonPresionado: {
     opacity: 0.7,
+  },
+  bannerProvisoria: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  botonAccionBanner: {
+    backgroundColor: '#d97706',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  filaHeaderUsuario: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+  },
+  botonCambiarClave: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modalFondo: {
+    flex: 1,
+    backgroundColor: '#00000088',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.four,
+  },
+  modalContenido: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalDescripcion: {
+    fontSize: 13,
+  },
+  mensajeAlerta: {
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  labelInput: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    fontSize: 14,
+  },
+  botonModalSubmit: {
+    height: 44,
+    borderRadius: Spacing.two,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.two,
   },
 });

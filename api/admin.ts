@@ -3,6 +3,7 @@ import type {
   AsignarViajeAdminRequest,
   CamionFlotaResponse,
   CrearChoferRequest,
+  CrearClienteRequest,
   FiltroFlota,
   FlotaResumenResponse,
   UsuarioResponse,
@@ -45,6 +46,22 @@ export async function listarChoferesAdmin(): Promise<UsuarioResponse[]> {
 }
 
 /**
+ * Registra y da de alta un nuevo cliente en el sistema con clave provisoria.
+ */
+export async function crearClienteAdmin(datos: CrearClienteRequest): Promise<UsuarioResponse> {
+  const { data } = await clienteApi.post<UsuarioResponse>('/api/admin/clientes', datos);
+  return data;
+}
+
+/**
+ * Obtiene el listado de todos los clientes registrados en el sistema.
+ */
+export async function listarClientesAdmin(): Promise<UsuarioResponse[]> {
+  const { data } = await clienteApi.get<UsuarioResponse[]>('/api/admin/clientes');
+  return data;
+}
+
+/**
  * Asigna un nuevo viaje a un camión y chofer, con opción de iniciar la simulación en ruta inmediatamente.
  */
 export async function asignarViajeAdmin(
@@ -71,3 +88,11 @@ export async function generarViajeSimuladoDemoAdmin(): Promise<ViajeMonitoreoAdm
   const { data } = await clienteApi.post<ViajeMonitoreoAdminResponse>('/api/admin/simulacion/crear-demo');
   return data;
 }
+
+/**
+ * Finaliza un viaje activo en curso, liberando el camión y el chofer para nuevas asignaciones.
+ */
+export async function finalizarViajeAdmin(viajeId: number): Promise<void> {
+  await clienteApi.post(`/api/admin/viajes/${viajeId}/finalizar`);
+}
+
