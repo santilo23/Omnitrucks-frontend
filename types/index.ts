@@ -232,3 +232,47 @@ export interface ViajeChoferResumenResponse {
   llegadaEstimada: string | null;
 }
 
+export interface CrearChoferRequest {
+  nombre: string;
+  apellido: string;
+  email: string;
+  password: string;
+}
+
+export interface AsignarViajeAdminRequest {
+  camionId: number;
+  choferId: number;
+  clienteId?: number | null;
+  origenNombre: string;
+  origenLat: number;
+  origenLon: number;
+  destinoNombre: string;
+  destinoLat: number;
+  destinoLon: number;
+  descripcionCarga?: string | null;
+  codigoSeguimiento?: string | null;
+  iniciarInmediatamente: boolean;
+}
+
+export interface ViajeMonitoreoAdminResponse {
+  viajeId: number;
+  codigoSeguimiento: string;
+  estado: EstadoViaje;
+  choferId: number | null;
+  choferNombre: string;
+  choferEmail: string;
+  camionId: number | null;
+  camionPatente: string;
+  camionModelo: string;
+  origenNombre: string;
+  destinoNombre: string;
+  descripcionCarga: string | null;
+  salidaProgramada: string | null;
+  salidaReal: string | null;
+  latitudActual: number;
+  longitudActual: number;
+  velocidadKmh: number;
+  rumboGrados: number;
+  ultimaActualizacion: string;
+}
+
