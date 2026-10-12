@@ -176,3 +176,59 @@ export interface UbicacionSeguimientoResponse {
   registradoEn: string;
 }
 
+export interface VehiculoChoferResponse {
+  id: number;
+  patente: string;
+  marca: string;
+  modelo: string;
+  anio: number | null;
+  capacidadKg: number | null;
+}
+
+export interface PuntoRuta {
+  nombre: string;
+  latitud: number;
+  longitud: number;
+}
+
+export interface PosicionChoferResponse {
+  latitud: number;
+  longitud: number;
+  velocidadKmh: number | null;
+  rumboGrados: number | null;
+  registradoEn: string;
+}
+
+export interface CoordenadaChoferResponse {
+  latitud: number;
+  longitud: number;
+  registradoEn: string;
+}
+
+export interface RutaChoferResponse {
+  viajeId: number;
+  codigoSeguimiento: string;
+  estado: EstadoViaje;
+  vehiculo: VehiculoChoferResponse;
+  origen: PuntoRuta;
+  destino: PuntoRuta;
+  descripcionCarga: string | null;
+  salidaProgramada: string | null;
+  salidaReal: string | null;
+  llegadaEstimada: string | null;
+  ultimaUbicacion: PosicionChoferResponse | null;
+  recorrido: CoordenadaChoferResponse[];
+}
+
+export interface ViajeChoferResumenResponse {
+  viajeId: number;
+  codigoSeguimiento: string;
+  estado: EstadoViaje;
+  patenteCamion: string;
+  modeloCamion: string;
+  origenNombre: string;
+  destinoNombre: string;
+  salidaProgramada: string | null;
+  llegadaEstimada: string | null;
+}
+

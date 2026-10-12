@@ -32,6 +32,7 @@ export default function RootLayout() {
             <Stack.Screen name="login" options={{ title: 'Iniciar sesión' }} />
             <Stack.Screen name="admin/flota" options={{ title: 'Gestión de Flota' }} />
             <Stack.Screen name="cliente/seguimiento" options={{ title: 'Seguimiento de Envío' }} />
+            <Stack.Screen name="chofer/ruta" options={{ title: 'Mi Ruta Asignada' }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />

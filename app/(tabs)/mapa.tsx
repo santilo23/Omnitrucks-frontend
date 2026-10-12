@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { MapaFlota } from '@/components/mapa-flota/index';
+import { MapaChofer } from '@/components/mapa-chofer/index';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -13,6 +14,9 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 /**
  * Pantalla de mapa de OmniTrucks.
  * REGLA DE NEGOCIO: Requiere autenticación obligatoria para visualizar cualquier dato de la flota.
+ * - CLIENTE: Bloqueado hacia la vista corporativa, redirigido a su portal de seguimiento de carga.
+ * - CHOFER: Vista restringida exclusivamente a su camión asignado, traza y destino final.
+ * - ADMIN: Vista completa de la flota operativa con todos los camiones activos.
  */
 export default function MapaScreen() {
   const router = useRouter();
@@ -101,7 +105,12 @@ export default function MapaScreen() {
     );
   }
 
-  // Usuario autenticado (ADMIN o CHOFER): renderiza el mapa en vivo
+  // Si es un chofer, solo tiene acceso al mapa con su ruta asignada y su destino final
+  if (usuario.rol === 'CHOFER') {
+    return <MapaChofer />;
+  }
+
+  // Usuario ADMIN: renderiza el mapa en vivo de toda la flota
   return <MapaFlota />;
 }
 
