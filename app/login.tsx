@@ -166,13 +166,6 @@ export default function LoginScreen() {
     }
   }
 
-  function rellenarCredenciales(nuevoEmail: string, nuevoPass: string) {
-    setEmail(nuevoEmail);
-    setPassword(nuevoPass);
-    setErrores({});
-    setErrorServidor(null);
-  }
-
   if (cargandoSesion) {
     return (
       <ThemedView style={[styles.container, styles.centrado]}>
@@ -397,32 +390,6 @@ export default function LoginScreen() {
           <View style={styles.encabezado}>
             <ThemedText type="title">Iniciar sesión</ThemedText>
             <Subtitulo>Ingresá con tu cuenta para acceder a la flota y viajes.</Subtitulo>
-          </View>
-
-          {/* Chips de prueba rápida para desarrollo */}
-          <View style={styles.contenedorChips}>
-            <ThemedText style={[styles.chipsTitulo, { color: textSecondary }]}>
-              Credenciales de prueba:
-            </ThemedText>
-            <View style={styles.filaChips}>
-              <Pressable
-                onPress={() => rellenarCredenciales('chofer@omnitrucks.com', 'chofer123')}
-                style={[styles.chip, { borderColor: border }]}>
-                <ThemedText style={styles.chipTexto}>Chofer (Juan Pérez)</ThemedText>
-              </Pressable>
-
-              <Pressable
-                onPress={() => rellenarCredenciales('admin@omnitrucks.com', 'admin123')}
-                style={[styles.chip, { borderColor: border }]}>
-                <ThemedText style={styles.chipTexto}>Admin (Martín)</ThemedText>
-              </Pressable>
-
-              <Pressable
-                onPress={() => rellenarCredenciales('cliente@omnitrucks.com', 'cliente123')}
-                style={[styles.chip, { borderColor: border }]}>
-                <ThemedText style={styles.chipTexto}>Cliente (Acme S.A.)</ThemedText>
-              </Pressable>
-            </View>
           </View>
 
           {errorServidor && (

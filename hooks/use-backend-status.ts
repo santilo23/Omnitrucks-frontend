@@ -4,7 +4,7 @@ import { env } from '@/config/env';
 
 export type BackendStatus = 'verificando' | 'conectado' | 'sin-conexion';
 
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 25000;
 
 /**
  * Consulta el endpoint de salud del backend para saber si el teléfono llega
@@ -26,7 +26,15 @@ export function useBackendStatus() {
       });
       setStatus(respuesta.ok ? 'conectado' : 'sin-conexion');
     } catch {
-      setStatus('sin-conexion');
+      try {
+        const ping = await fetch(`${env.apiUrl}/api/auth/login`, {
+          method: 'OPTIONS',
+          signal: controller.signal,
+        });
+        setStatus(ping.ok || ping.status < 500 ? 'conectado' : 'sin-conexion');
+      } catch {
+        setStatus('sin-conexion');
+      }
     } finally {
       clearTimeout(timeout);
     }
