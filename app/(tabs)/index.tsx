@@ -61,17 +61,43 @@ export default function InicioScreen() {
 
             <View style={styles.filaAccionesUsuario}>
               {usuario.rol === 'ADMIN' && (
-                <Pressable
-                  onPress={() => router.push('/admin/flota' as any)}
-                  style={({ pressed }) => [
-                    styles.botonUsuario,
-                    { backgroundColor: '#0284c7' },
-                    pressed && styles.botonPresionado,
-                  ]}>
-                  <ThemedText style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>
-                    Panel Flota
-                  </ThemedText>
-                </Pressable>
+                <>
+                  <Pressable
+                    onPress={() => router.push('/admin/flota' as any)}
+                    style={({ pressed }) => [
+                      styles.botonUsuario,
+                      { backgroundColor: '#0284c7' },
+                      pressed && styles.botonPresionado,
+                    ]}>
+                    <ThemedText style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>
+                      Panel Flota
+                    </ThemedText>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/admin/flota', params: { tab: 'CLIENTES' } } as any)}
+                    style={({ pressed }) => [
+                      styles.botonUsuario,
+                      { backgroundColor: '#0891b2' },
+                      pressed && styles.botonPresionado,
+                    ]}>
+                    <ThemedText style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>
+                      Clientes
+                    </ThemedText>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/admin/flota', params: { tab: 'CAMIONES' } } as any)}
+                    style={({ pressed }) => [
+                      styles.botonUsuario,
+                      { backgroundColor: '#475569' },
+                      pressed && styles.botonPresionado,
+                    ]}>
+                    <ThemedText style={{ color: '#ffffff', fontWeight: '600', fontSize: 13 }}>
+                      Camiones
+                    </ThemedText>
+                  </Pressable>
+                </>
               )}
 
               {usuario.rol === 'CLIENTE' && (

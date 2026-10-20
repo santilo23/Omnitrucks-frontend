@@ -286,6 +286,14 @@ export interface CrearClienteRequest {
   passwordProvisoria: string;
 }
 
+export interface CrearCamionRequest {
+  patente: string;
+  marca: string;
+  modelo: string;
+  anio: number;
+  capacidadKg: number;
+}
+
 export interface CambiarPasswordRequest {
   passwordActual: string;
   nuevaPassword: string;

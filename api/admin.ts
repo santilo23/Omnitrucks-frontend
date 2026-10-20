@@ -2,6 +2,7 @@ import { clienteApi } from './cliente';
 import type {
   AsignarViajeAdminRequest,
   CamionFlotaResponse,
+  CrearCamionRequest,
   CrearChoferRequest,
   CrearClienteRequest,
   FiltroFlota,
@@ -9,6 +10,14 @@ import type {
   UsuarioResponse,
   ViajeMonitoreoAdminResponse,
 } from '@/types';
+
+/**
+ * Registra y da de alta un nuevo camión en la flota desde el panel de administración.
+ */
+export async function crearCamionAdmin(datos: CrearCamionRequest): Promise<CamionFlotaResponse> {
+  const { data } = await clienteApi.post<CamionFlotaResponse>('/api/camiones', datos);
+  return data;
+}
 
 /**
  * Consulta la flota completa o filtrada (TODOS, ACTIVOS, INACTIVOS)

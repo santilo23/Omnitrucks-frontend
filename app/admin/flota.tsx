@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,12 +12,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import {
   asignarViajeAdmin,
+  crearCamionAdmin,
   crearChoferAdmin,
   crearClienteAdmin,
   finalizarViajeAdmin,
@@ -34,6 +36,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import type {
   AsignarViajeAdminRequest,
+  CrearCamionRequest,
   CrearChoferRequest,
   CrearClienteRequest,
   EstadoOperativoCamion,
@@ -71,16 +74,35 @@ const RUTAS_PREDEFINIDAS = [
 
 export default function AdminFlotaScreen() {
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const queryClient = useQueryClient();
   const { usuario, isLoading: isAuthLoading } = useAuth();
 
-  const [pestanaActiva, setPestanaActiva] = useState<PestanaAdmin>('EN_RUTA');
+  const [pestanaActiva, setPestanaActiva] = useState<PestanaAdmin>(
+    (tab && ['EN_RUTA', 'CAMIONES', 'CHOFERES', 'CLIENTES'].includes(tab) ? (tab as PestanaAdmin) : 'EN_RUTA')
+  );
+
+  useEffect(() => {
+    if (tab && ['EN_RUTA', 'CAMIONES', 'CHOFERES', 'CLIENTES'].includes(tab)) {
+      setPestanaActiva(tab as PestanaAdmin);
+    }
+  }, [tab]);
+
   const [filtroCamiones, setFiltroCamiones] = useState<FiltroFlota>('TODOS');
 
   // Modales
+  const [modalCamionVisible, setModalCamionVisible] = useState(false);
   const [modalChoferVisible, setModalChoferVisible] = useState(false);
   const [modalClienteVisible, setModalClienteVisible] = useState(false);
   const [modalViajeVisible, setModalViajeVisible] = useState(false);
+
+  // Formulario Camión
+  const [patenteCamion, setPatenteCamion] = useState('');
+  const [marcaCamion, setMarcaCamion] = useState('');
+  const [modeloCamion, setModeloCamion] = useState('');
+  const [anioCamion, setAnioCamion] = useState('');
+  const [capacidadCamion, setCapacidadCamion] = useState('');
+  const [mensajeCamion, setMensajeCamion] = useState<{ texto: string; error: boolean } | null>(null);
 
   // Formulario Chofer
   const [nombreChofer, setNombreChofer] = useState('');
@@ -153,6 +175,35 @@ export default function AdminFlotaScreen() {
   const camionesDisponibles = camiones.filter((c) => c.activo && !camionesEnRutaIds.has(c.id));
   const choferesDisponibles = choferes.filter((ch) => !choferesEnRutaIds.has(ch.id));
 
+  // Mutación: Crear Camión
+  const crearCamionMutation = useMutation({
+    mutationFn: (datos: CrearCamionRequest) => crearCamionAdmin(datos),
+    onSuccess: (nuevo) => {
+      setMensajeCamion({
+        texto: `¡Camión patente ${nuevo.patente} (${nuevo.marca} ${nuevo.modelo}) incorporado a la flota con éxito!`,
+        error: false,
+      });
+      setPatenteCamion('');
+      setMarcaCamion('');
+      setModeloCamion('');
+      setAnioCamion('');
+      setCapacidadCamion('');
+      queryClient.invalidateQueries({ queryKey: ['admin-flota'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-flota-resumen'] });
+    },
+    onError: (err: any) => {
+      const data = err.response?.data;
+      let msg = data?.detail || data?.message;
+      if (!msg && data?.errores) {
+        msg = Object.values(data.errores).join(' - ');
+      }
+      if (!msg) {
+        msg = err.message || 'Error al registrar el camión.';
+      }
+      setMensajeCamion({ texto: msg, error: true });
+    },
+  });
+
   // Mutación: Crear Chofer
   const crearChoferMutation = useMutation({
     mutationFn: (datos: CrearChoferRequest) => crearChoferAdmin(datos),
@@ -168,7 +219,14 @@ export default function AdminFlotaScreen() {
       queryClient.invalidateQueries({ queryKey: ['admin-choferes'] });
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.detail || 'Error al dar de alta el chofer.';
+      const data = err.response?.data;
+      let msg = data?.detail || data?.message;
+      if (!msg && data?.errores) {
+        msg = Object.values(data.errores).join(' - ');
+      }
+      if (!msg) {
+        msg = err.message || 'Error al dar de alta el chofer.';
+      }
       setMensajeChofer({ texto: msg, error: true });
     },
   });
@@ -188,7 +246,14 @@ export default function AdminFlotaScreen() {
       queryClient.invalidateQueries({ queryKey: ['admin-clientes'] });
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.detail || 'Error al dar de alta el cliente.';
+      const data = err.response?.data;
+      let msg = data?.detail || data?.message;
+      if (!msg && data?.errores) {
+        msg = Object.values(data.errores).join(' - ');
+      }
+      if (!msg) {
+        msg = err.message || 'Error al dar de alta el cliente.';
+      }
       setMensajeCliente({ texto: msg, error: true });
     },
   });
@@ -206,7 +271,14 @@ export default function AdminFlotaScreen() {
       queryClient.invalidateQueries({ queryKey: ['admin-flota-resumen'] });
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.detail || 'Error al asignar el viaje.';
+      const data = err.response?.data;
+      let msg = data?.detail || data?.message;
+      if (!msg && data?.errores) {
+        msg = Object.values(data.errores).join(' - ');
+      }
+      if (!msg) {
+        msg = err.message || 'Error al asignar el viaje.';
+      }
       setMensajeViaje({ texto: msg, error: true });
     },
   });
@@ -224,7 +296,12 @@ export default function AdminFlotaScreen() {
       setPestanaActiva('EN_RUTA');
     },
     onError: (err: any) => {
-      Alert.alert('Error', err.response?.data?.detail || 'No se pudo iniciar la simulación.');
+      const msg = err.response?.data?.detail || 'No se pudo iniciar la simulación.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     },
   });
 
@@ -238,14 +315,26 @@ export default function AdminFlotaScreen() {
       queryClient.invalidateQueries({ queryKey: ['admin-flota-resumen'] });
     },
     onError: (err: any) => {
-      Alert.alert('Error', err.response?.data?.detail || 'No se pudo finalizar el viaje.');
+      const msg = err.response?.data?.detail || 'No se pudo finalizar el viaje.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     },
   });
 
   const handleFinalizarViaje = (viajeId: number, choferNombre: string, camionPatente: string) => {
+    const mensaje = `¿Deseas finalizar el viaje del chofer ${choferNombre} (Camión ${camionPatente})? El camión y el chofer quedarán disponibles para nuevos viajes.`;
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(mensaje)) {
+        finalizarViajeMutation.mutate(viajeId);
+      }
+      return;
+    }
     Alert.alert(
       'Finalizar Viaje',
-      `¿Deseas finalizar el viaje del chofer ${choferNombre} (Camión ${camionPatente})? El camión y el chofer quedarán disponibles para nuevos viajes.`,
+      mensaje,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -265,6 +354,30 @@ export default function AdminFlotaScreen() {
       refetchChoferes(),
       refetchClientes(),
     ]);
+  };
+
+  const handleCrearCamion = () => {
+    if (!patenteCamion.trim() || !marcaCamion.trim() || !modeloCamion.trim() || !anioCamion.trim() || !capacidadCamion.trim()) {
+      setMensajeCamion({ texto: 'Por favor completá todos los campos del camión.', error: true });
+      return;
+    }
+    const anioNum = parseInt(anioCamion.trim(), 10);
+    const capNum = parseInt(capacidadCamion.trim(), 10);
+    if (isNaN(anioNum) || anioNum < 1950 || anioNum > 2100) {
+      setMensajeCamion({ texto: 'El año del camión debe ser válido (entre 1950 y 2100).', error: true });
+      return;
+    }
+    if (isNaN(capNum) || capNum <= 0) {
+      setMensajeCamion({ texto: 'La capacidad debe ser un número positivo en Kg.', error: true });
+      return;
+    }
+    crearCamionMutation.mutate({
+      patente: patenteCamion.trim().toUpperCase(),
+      marca: marcaCamion.trim(),
+      modelo: modeloCamion.trim(),
+      anio: anioNum,
+      capacidadKg: capNum,
+    });
   };
 
   const handleCrearChofer = () => {
@@ -419,7 +532,7 @@ export default function AdminFlotaScreen() {
           disabled={simularDemoMutation.isPending}
           style={({ pressed }) => [
             styles.botonAccion,
-            { backgroundColor: '#0284c7' },
+            { backgroundColor: '#d97706' },
             pressed && styles.botonPresionado,
           ]}>
           {simularDemoMutation.isPending ? (
@@ -427,7 +540,7 @@ export default function AdminFlotaScreen() {
           ) : (
             <MaterialIcons name="bolt" size={18} color="#FFFFFF" />
           )}
-          <ThemedText style={styles.botonAccionTexto}>Simular Camión en Vivo</ThemedText>
+          <ThemedText style={styles.botonAccionTexto}>Simular Demo</ThemedText>
         </Pressable>
 
         <Pressable
@@ -442,6 +555,20 @@ export default function AdminFlotaScreen() {
           ]}>
           <MaterialIcons name="add-road" size={18} color="#FFFFFF" />
           <ThemedText style={styles.botonAccionTexto}>Asignar Viaje</ThemedText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setMensajeCamion(null);
+            setModalCamionVisible(true);
+          }}
+          style={({ pressed }) => [
+            styles.botonAccion,
+            { backgroundColor: '#0284c7' },
+            pressed && styles.botonPresionado,
+          ]}>
+          <MaterialIcons name="local-shipping" size={18} color="#FFFFFF" />
+          <ThemedText style={styles.botonAccionTexto}>Agregar Camión</ThemedText>
         </Pressable>
 
         <Pressable
@@ -486,75 +613,80 @@ export default function AdminFlotaScreen() {
         </View>
       )}
 
-      {/* 3. Pestañas de Navegación del Panel */}
-      <View style={[styles.pestanasContainer, { borderBottomColor: border }]}>
-        <Pressable
-          onPress={() => setPestanaActiva('EN_RUTA')}
-          style={[styles.pestana, pestanaActiva === 'EN_RUTA' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
-          <MaterialIcons
-            name="navigation"
-            size={18}
-            color={pestanaActiva === 'EN_RUTA' ? tint : textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.pestanaTexto,
-              { color: pestanaActiva === 'EN_RUTA' ? tint : textSecondary, fontWeight: pestanaActiva === 'EN_RUTA' ? '700' : '500' },
-            ]}>
-            En Ruta ({viajesActivos.length})
-          </ThemedText>
-        </Pressable>
+      {/* 3. Pestañas de Navegación del Panel (Scroll horizontal responsivo) */}
+      <View style={{ borderBottomColor: border, borderBottomWidth: StyleSheet.hairlineWidth }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pestanasScroll}>
+          <Pressable
+            onPress={() => setPestanaActiva('EN_RUTA')}
+            style={[styles.pestana, pestanaActiva === 'EN_RUTA' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
+            <MaterialIcons
+              name="navigation"
+              size={18}
+              color={pestanaActiva === 'EN_RUTA' ? tint : textSecondary}
+            />
+            <ThemedText
+              style={[
+                styles.pestanaTexto,
+                { color: pestanaActiva === 'EN_RUTA' ? tint : textSecondary, fontWeight: pestanaActiva === 'EN_RUTA' ? '700' : '500' },
+              ]}>
+              En Ruta ({viajesActivos.length})
+            </ThemedText>
+          </Pressable>
 
-        <Pressable
-          onPress={() => setPestanaActiva('CAMIONES')}
-          style={[styles.pestana, pestanaActiva === 'CAMIONES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
-          <MaterialIcons
-            name="local-shipping"
-            size={18}
-            color={pestanaActiva === 'CAMIONES' ? tint : textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.pestanaTexto,
-              { color: pestanaActiva === 'CAMIONES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CAMIONES' ? '700' : '500' },
-            ]}>
-            Camiones
-          </ThemedText>
-        </Pressable>
+          <Pressable
+            onPress={() => setPestanaActiva('CAMIONES')}
+            style={[styles.pestana, pestanaActiva === 'CAMIONES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
+            <MaterialIcons
+              name="local-shipping"
+              size={18}
+              color={pestanaActiva === 'CAMIONES' ? tint : textSecondary}
+            />
+            <ThemedText
+              style={[
+                styles.pestanaTexto,
+                { color: pestanaActiva === 'CAMIONES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CAMIONES' ? '700' : '500' },
+              ]}>
+              Camiones ({camiones.length})
+            </ThemedText>
+          </Pressable>
 
-        <Pressable
-          onPress={() => setPestanaActiva('CHOFERES')}
-          style={[styles.pestana, pestanaActiva === 'CHOFERES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
-          <MaterialIcons
-            name="people"
-            size={18}
-            color={pestanaActiva === 'CHOFERES' ? tint : textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.pestanaTexto,
-              { color: pestanaActiva === 'CHOFERES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CHOFERES' ? '700' : '500' },
-            ]}>
-            Choferes ({choferes.length})
-          </ThemedText>
-        </Pressable>
+          <Pressable
+            onPress={() => setPestanaActiva('CHOFERES')}
+            style={[styles.pestana, pestanaActiva === 'CHOFERES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
+            <MaterialIcons
+              name="people"
+              size={18}
+              color={pestanaActiva === 'CHOFERES' ? tint : textSecondary}
+            />
+            <ThemedText
+              style={[
+                styles.pestanaTexto,
+                { color: pestanaActiva === 'CHOFERES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CHOFERES' ? '700' : '500' },
+              ]}>
+              Choferes ({choferes.length})
+            </ThemedText>
+          </Pressable>
 
-        <Pressable
-          onPress={() => setPestanaActiva('CLIENTES')}
-          style={[styles.pestana, pestanaActiva === 'CLIENTES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
-          <MaterialIcons
-            name="business"
-            size={18}
-            color={pestanaActiva === 'CLIENTES' ? tint : textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.pestanaTexto,
-              { color: pestanaActiva === 'CLIENTES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CLIENTES' ? '700' : '500' },
-            ]}>
-            Clientes ({clientes.length})
-          </ThemedText>
-        </Pressable>
+          <Pressable
+            onPress={() => setPestanaActiva('CLIENTES')}
+            style={[styles.pestana, pestanaActiva === 'CLIENTES' && { borderBottomColor: tint, borderBottomWidth: 3 }]}>
+            <MaterialIcons
+              name="business"
+              size={18}
+              color={pestanaActiva === 'CLIENTES' ? tint : textSecondary}
+            />
+            <ThemedText
+              style={[
+                styles.pestanaTexto,
+                { color: pestanaActiva === 'CLIENTES' ? tint : textSecondary, fontWeight: pestanaActiva === 'CLIENTES' ? '700' : '500' },
+              ]}>
+              Clientes ({clientes.length})
+            </ThemedText>
+          </Pressable>
+        </ScrollView>
       </View>
 
       {/* 4. Contenido según pestaña */}
@@ -672,6 +804,31 @@ export default function AdminFlotaScreen() {
 
       {pestanaActiva === 'CAMIONES' && (
         <View style={{ flex: 1 }}>
+          {/* Header de Gestión de Camiones */}
+          <View style={[styles.headerSeccion, { backgroundColor: card, borderColor: border }]}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>
+                Flota de Camiones ({camiones.length})
+              </ThemedText>
+              <ThemedText style={{ color: textSecondary, fontSize: 12 }}>
+                Gestión operativa y asignación de unidades
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={() => {
+                setMensajeCamion(null);
+                setModalCamionVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.botonAccionHeader,
+                { backgroundColor: '#0284c7' },
+                pressed && styles.botonPresionado,
+              ]}>
+              <MaterialIcons name="add" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.botonAccionTexto}>Nuevo Camión</ThemedText>
+            </Pressable>
+          </View>
+
           {/* Selector de Filtros de Camiones */}
           <View style={styles.filtrosContainer}>
             {(['TODOS', 'ACTIVOS', 'INACTIVOS'] as FiltroFlota[]).map((f) => {
@@ -703,6 +860,26 @@ export default function AdminFlotaScreen() {
           <FlatList
             data={camiones}
             keyExtractor={(item) => item.id.toString()}
+            ListEmptyComponent={
+              <View style={[styles.tarjetaVacia, { backgroundColor: card, borderColor: border }]}>
+                <MaterialIcons name="local-shipping" size={40} color={textSecondary} />
+                <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
+                  No hay camiones registrados
+                </ThemedText>
+                <ThemedText style={{ color: textSecondary, textAlign: 'center', fontSize: 13 }}>
+                  {'Presioná "Nuevo Camión" para incorporar vehículos a la flota.'}
+                </ThemedText>
+                <Pressable
+                  onPress={() => {
+                    setMensajeCamion(null);
+                    setModalCamionVisible(true);
+                  }}
+                  style={[styles.botonAccionHeader, { backgroundColor: '#0284c7', marginTop: Spacing.two }]}>
+                  <MaterialIcons name="add" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.botonAccionTexto}>Agregar Primer Camión</ThemedText>
+                </Pressable>
+              </View>
+            }
             renderItem={({ item }) => (
               <View style={[styles.tarjetaCamion, { backgroundColor: card, borderColor: border }]}>
                 <View style={styles.filaCamionEncabezado}>
@@ -735,80 +912,181 @@ export default function AdminFlotaScreen() {
       )}
 
       {pestanaActiva === 'CHOFERES' && (
-        <FlatList
-          data={choferes}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <View style={[styles.tarjetaChoferItem, { backgroundColor: card, borderColor: border }]}>
-              <View style={styles.avatarChoferMini}>
-                <MaterialIcons name="person" size={24} color="#7c3aed" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>
-                  {item.nombreCompleto}
-                </ThemedText>
-                <ThemedText style={{ color: textSecondary, fontSize: 13 }}>
-                  {item.email}
-                </ThemedText>
-                <ThemedText style={{ color: '#059669', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
-                  Cuenta activa para iniciar sesión
-                </ThemedText>
-              </View>
+        <View style={{ flex: 1 }}>
+          <View style={[styles.headerSeccion, { backgroundColor: card, borderColor: border }]}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>
+                Conductores Registrados ({choferes.length})
+              </ThemedText>
+              <ThemedText style={{ color: textSecondary, fontSize: 12 }}>
+                Personal habilitado para realizar traslados y reportar GPS
+              </ThemedText>
             </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={tint} />}
-        />
+            <Pressable
+              onPress={() => {
+                setMensajeChofer(null);
+                setModalChoferVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.botonAccionHeader,
+                { backgroundColor: '#7c3aed' },
+                pressed && styles.botonPresionado,
+              ]}>
+              <MaterialIcons name="person-add" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.botonAccionTexto}>Nuevo Chofer</ThemedText>
+            </Pressable>
+          </View>
+
+          <FlatList
+            data={choferes}
+            keyExtractor={(item) => item.id.toString()}
+            ListEmptyComponent={
+              <View style={[styles.tarjetaVacia, { backgroundColor: card, borderColor: border }]}>
+                <MaterialIcons name="people" size={40} color={textSecondary} />
+                <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
+                  No hay choferes registrados
+                </ThemedText>
+                <ThemedText style={{ color: textSecondary, textAlign: 'center', fontSize: 13 }}>
+                  {'Presioná "Nuevo Chofer" para dar de alta conductores con su clave de acceso.'}
+                </ThemedText>
+                <Pressable
+                  onPress={() => {
+                    setMensajeChofer(null);
+                    setModalChoferVisible(true);
+                  }}
+                  style={[styles.botonAccionHeader, { backgroundColor: '#7c3aed', marginTop: Spacing.two }]}>
+                  <MaterialIcons name="person-add" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.botonAccionTexto}>Agregar Primer Chofer</ThemedText>
+                </Pressable>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <View style={[styles.tarjetaChoferItem, { backgroundColor: card, borderColor: border }]}>
+                <View style={styles.avatarChoferMini}>
+                  <MaterialIcons name="person" size={24} color="#7c3aed" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>
+                    {item.nombreCompleto}
+                  </ThemedText>
+                  <ThemedText style={{ color: textSecondary, fontSize: 13 }}>
+                    {item.email}
+                  </ThemedText>
+                  <ThemedText style={{ color: '#059669', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                    Cuenta activa para iniciar sesión
+                  </ThemedText>
+                </View>
+              </View>
+            )}
+            contentContainerStyle={styles.listContent}
+            refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={tint} />}
+          />
+        </View>
       )}
 
       {pestanaActiva === 'CLIENTES' && (
-        <FlatList
-          data={clientes}
-          keyExtractor={(item) => item.id.toString()}
-          ListEmptyComponent={
-            <View style={[styles.tarjetaVacia, { backgroundColor: card, borderColor: border }]}>
-              <MaterialIcons name="business" size={40} color={textSecondary} />
-              <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
-                No hay clientes registrados
+        <View style={{ flex: 1 }}>
+          <View style={[styles.headerSeccion, { backgroundColor: card, borderColor: border }]}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>
+                Directorio de Clientes ({clientes.length})
               </ThemedText>
-              <ThemedText style={{ color: textSecondary, textAlign: 'center', fontSize: 13 }}>
-                {'Presioná "Agregar Cliente" para dar de alta clientes con clave provisoria.'}
+              <ThemedText style={{ color: textSecondary, fontSize: 12 }}>
+                Empresas y destinatarios que siguen envíos en tiempo real
               </ThemedText>
             </View>
-          }
-          renderItem={({ item }) => (
-            <View style={[styles.tarjetaChoferItem, { backgroundColor: card, borderColor: border }]}>
-              <View style={[styles.avatarChoferMini, { backgroundColor: '#0891b222' }]}>
-                <MaterialIcons name="business" size={24} color="#0891b2" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>
-                  {item.nombreCompleto}
+            <Pressable
+              onPress={() => {
+                setMensajeCliente(null);
+                setModalClienteVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.botonAccionHeader,
+                { backgroundColor: '#0891b2' },
+                pressed && styles.botonPresionado,
+              ]}>
+              <MaterialIcons name="person-add" size={16} color="#FFFFFF" />
+              <ThemedText style={styles.botonAccionTexto}>Nuevo Cliente</ThemedText>
+            </Pressable>
+          </View>
+
+          <FlatList
+            data={clientes}
+            keyExtractor={(item) => item.id.toString()}
+            ListEmptyComponent={
+              <View style={[styles.tarjetaVacia, { backgroundColor: card, borderColor: border }]}>
+                <MaterialIcons name="business" size={40} color={textSecondary} />
+                <ThemedText type="subtitle" style={{ textAlign: 'center' }}>
+                  No hay clientes registrados
                 </ThemedText>
-                <ThemedText style={{ color: textSecondary, fontSize: 13 }}>
-                  {item.email}
+                <ThemedText style={{ color: textSecondary, textAlign: 'center', fontSize: 13 }}>
+                  {'Presioná "Nuevo Cliente" para dar de alta clientes con clave provisoria.'}
                 </ThemedText>
-                {item.debeCambiarPassword ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                    <MaterialIcons name="lock-clock" size={14} color="#d97706" />
-                    <ThemedText style={{ color: '#d97706', fontSize: 11, fontWeight: '700' }}>
-                      Clave provisoria asignada (debe cambiarla al ingresar)
-                    </ThemedText>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                    <MaterialIcons name="check-circle" size={14} color="#059669" />
-                    <ThemedText style={{ color: '#059669', fontSize: 11, fontWeight: '600' }}>
-                      Contraseña definitiva establecida
-                    </ThemedText>
-                  </View>
-                )}
+                <Pressable
+                  onPress={() => {
+                    setMensajeCliente(null);
+                    setModalClienteVisible(true);
+                  }}
+                  style={[styles.botonAccionHeader, { backgroundColor: '#0891b2', marginTop: Spacing.two }]}>
+                  <MaterialIcons name="person-add" size={16} color="#FFFFFF" />
+                  <ThemedText style={styles.botonAccionTexto}>Agregar Primer Cliente</ThemedText>
+                </Pressable>
               </View>
-            </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={tint} />}
-        />
+            }
+            renderItem={({ item }) => (
+              <View style={[styles.tarjetaChoferItem, { backgroundColor: card, borderColor: border, flexDirection: 'column', alignItems: 'stretch' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.three }}>
+                  <View style={[styles.avatarChoferMini, { backgroundColor: '#0891b222' }]}>
+                    <MaterialIcons name="business" size={24} color="#0891b2" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>
+                      {item.nombreCompleto}
+                    </ThemedText>
+                    <ThemedText style={{ color: textSecondary, fontSize: 13 }}>
+                      {item.email}
+                    </ThemedText>
+                    {item.debeCambiarPassword ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <MaterialIcons name="lock-clock" size={14} color="#d97706" />
+                        <ThemedText style={{ color: '#d97706', fontSize: 11, fontWeight: '700' }}>
+                          Clave provisoria asignada (debe cambiarla al ingresar)
+                        </ThemedText>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <MaterialIcons name="check-circle" size={14} color="#059669" />
+                        <ThemedText style={{ color: '#059669', fontSize: 11, fontWeight: '600' }}>
+                          Contraseña definitiva establecida
+                        </ThemedText>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Botón rápido para asignar viaje a este cliente */}
+                <Pressable
+                  onPress={() => {
+                    setClienteSeleccionadoId(item.id);
+                    setMensajeViaje(null);
+                    setModalViajeVisible(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.botonClienteAsignar,
+                    { borderColor: '#0891b2', backgroundColor: '#0891b212' },
+                    pressed && styles.botonPresionado,
+                  ]}>
+                  <MaterialIcons name="add-road" size={16} color="#0891b2" />
+                  <ThemedText style={{ color: '#0891b2', fontSize: 12, fontWeight: '700' }}>
+                    Asignar Viaje a este Cliente
+                  </ThemedText>
+                </Pressable>
+              </View>
+            )}
+            contentContainerStyle={styles.listContent}
+            refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={tint} />}
+          />
+        </View>
       )}
 
       {/* MODAL 1: ALTA DE CHOFER CON CLAVE */}
@@ -926,9 +1204,23 @@ export default function AdminFlotaScreen() {
               {/* Selector de Camión */}
               <ThemedText style={styles.labelInput}>1. Seleccionar Camión (Disponibles)</ThemedText>
               {camionesDisponibles.length === 0 ? (
-                <ThemedText style={{ color: textSecondary, fontSize: 12, marginVertical: 4 }}>
-                  No hay camiones disponibles en este momento (todos están en viaje activo).
-                </ThemedText>
+                <View style={[styles.cajaAlertaDisponibilidad, { backgroundColor: '#fef3c722', borderColor: '#d97706' }]}>
+                  <MaterialIcons name="warning" size={18} color="#d97706" />
+                  <ThemedText style={{ color: '#d97706', fontSize: 12, flex: 1 }}>
+                    No hay camiones libres (todos están en viaje activo o aún no agregaste unidades).
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => {
+                      setModalViajeVisible(false);
+                      setMensajeCamion(null);
+                      setModalCamionVisible(true);
+                    }}
+                    style={[styles.botonMiniAlerta, { backgroundColor: '#0284c7' }]}>
+                    <ThemedText style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+                      + Nuevo Camión
+                    </ThemedText>
+                  </Pressable>
+                </View>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
                   {camionesDisponibles.map((c) => {
@@ -953,9 +1245,23 @@ export default function AdminFlotaScreen() {
               {/* Selector de Chofer */}
               <ThemedText style={styles.labelInput}>2. Seleccionar Chofer (Disponibles)</ThemedText>
               {choferesDisponibles.length === 0 ? (
-                <ThemedText style={{ color: textSecondary, fontSize: 12, marginVertical: 4 }}>
-                  No hay choferes disponibles en este momento (todos están en viaje activo).
-                </ThemedText>
+                <View style={[styles.cajaAlertaDisponibilidad, { backgroundColor: '#fef3c722', borderColor: '#d97706' }]}>
+                  <MaterialIcons name="warning" size={18} color="#d97706" />
+                  <ThemedText style={{ color: '#d97706', fontSize: 12, flex: 1 }}>
+                    Todos los choferes tienen un viaje activo en curso.
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => {
+                      setModalViajeVisible(false);
+                      setMensajeChofer(null);
+                      setModalChoferVisible(true);
+                    }}
+                    style={[styles.botonMiniAlerta, { backgroundColor: '#7c3aed' }]}>
+                    <ThemedText style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+                      + Nuevo Chofer
+                    </ThemedText>
+                  </Pressable>
+                </View>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
                   {choferesDisponibles.map((ch) => {
@@ -1157,6 +1463,108 @@ export default function AdminFlotaScreen() {
                 ) : (
                   <ThemedText style={{ color: '#FFFFFF', fontWeight: '700' }}>
                     Guardar Cliente con Clave Provisoria
+                  </ThemedText>
+                )}
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 4: ALTA DE CAMIÓN EN FLOTA */}
+      <Modal visible={modalCamionVisible} animationType="slide" transparent>
+        <View style={styles.modalFondo}>
+          <View style={[styles.modalContenido, { backgroundColor: card, borderColor: border }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle">Agregar Nuevo Camión</ThemedText>
+              <Pressable onPress={() => setModalCamionVisible(false)}>
+                <MaterialIcons name="close" size={24} color={textSecondary} />
+              </Pressable>
+            </View>
+
+            <ThemedText style={[styles.modalDescripcion, { color: textSecondary }]}>
+              Ingresá la patente (formato ABC123 o AB123CD), marca, modelo, año y capacidad de carga en kilogramos.
+            </ThemedText>
+
+            {mensajeCamion && (
+              <View
+                style={[
+                  styles.mensajeAlerta,
+                  { backgroundColor: mensajeCamion.error ? '#ef444422' : '#22c55e22' },
+                ]}>
+                <ThemedText style={{ color: mensajeCamion.error ? '#dc2626' : '#15803d', fontSize: 13 }}>
+                  {mensajeCamion.texto}
+                </ThemedText>
+              </View>
+            )}
+
+            <ScrollView contentContainerStyle={{ gap: Spacing.two }}>
+              <ThemedText style={styles.labelInput}>Patente *</ThemedText>
+              <TextInput
+                value={patenteCamion}
+                onChangeText={(t) => setPatenteCamion(t.toUpperCase())}
+                placeholder="Ej. AB123CD o ABC123"
+                placeholderTextColor={textSecondary}
+                autoCapitalize="characters"
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Marca *</ThemedText>
+              <TextInput
+                value={marcaCamion}
+                onChangeText={setMarcaCamion}
+                placeholder="Ej. Scania, Mercedes-Benz, Volvo"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <ThemedText style={styles.labelInput}>Modelo *</ThemedText>
+              <TextInput
+                value={modeloCamion}
+                onChangeText={setModeloCamion}
+                placeholder="Ej. R450, Actros 2548, FH 540"
+                placeholderTextColor={textSecondary}
+                style={[styles.input, { borderColor: border, color: tint }]}
+              />
+
+              <View style={{ flexDirection: 'row', gap: Spacing.two }}>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.labelInput}>Año *</ThemedText>
+                  <TextInput
+                    value={anioCamion}
+                    onChangeText={setAnioCamion}
+                    keyboardType="numeric"
+                    placeholder="2024"
+                    placeholderTextColor={textSecondary}
+                    style={[styles.input, { borderColor: border, color: tint }]}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.labelInput}>Capacidad (Kg) *</ThemedText>
+                  <TextInput
+                    value={capacidadCamion}
+                    onChangeText={setCapacidadCamion}
+                    keyboardType="numeric"
+                    placeholder="30000"
+                    placeholderTextColor={textSecondary}
+                    style={[styles.input, { borderColor: border, color: tint }]}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={handleCrearCamion}
+                disabled={crearCamionMutation.isPending}
+                style={({ pressed }) => [
+                  styles.botonModalSubmit,
+                  { backgroundColor: '#0284c7' },
+                  pressed && styles.botonPresionado,
+                ]}>
+                {crearCamionMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <ThemedText style={{ color: '#FFFFFF', fontWeight: '700' }}>
+                    Incorporar Camión a la Flota
                   </ThemedText>
                 )}
               </Pressable>
@@ -1520,5 +1928,53 @@ const styles = StyleSheet.create({
   labelPequeno: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  headerSeccion: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    marginHorizontal: Spacing.three,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.one,
+    borderRadius: Spacing.one,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  botonAccionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 6,
+    borderRadius: Spacing.one,
+  },
+  botonClienteAsignar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    borderRadius: Spacing.one,
+    borderWidth: 1,
+    marginTop: Spacing.two,
+  },
+  cajaAlertaDisponibilidad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.two,
+    borderRadius: Spacing.one,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  botonMiniAlerta: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 4,
+    borderRadius: Spacing.one,
+  },
+  pestanasScroll: {
+    paddingHorizontal: Spacing.two,
+    flexDirection: 'row',
   },
 });
