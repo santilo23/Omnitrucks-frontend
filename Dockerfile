@@ -22,6 +22,9 @@ RUN npx expo export --platform web
 # ==============================================================================
 FROM nginx:alpine AS runtime
 
+# Actualizar paquetes de Alpine a las versiones con parches de seguridad más recientes
+RUN apk update && apk upgrade --no-cache
+
 # Copiar bundle web generado en la etapa anterior
 COPY --from=build /app/dist /usr/share/nginx/html
 
