@@ -3,6 +3,9 @@
 # ==============================================================================
 FROM node:20-alpine AS build
 
+# Actualizar paquetes del sistema base Alpine
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 # 1. Copiar manifiestos de dependencias
