@@ -77,7 +77,8 @@ export function MapaFlota() {
     if (ubicacionSeleccionada && mapRef.current) {
       mapRef.current.animateToRegion(
         {
-          latitude: ubicacionSeleccionada.posicion.latitud,
+          // Ligero desplazamiento hacia el norte para que el camión no quede tapado por la tarjeta inferior
+          latitude: ubicacionSeleccionada.posicion.latitud - 0.03,
           longitude: ubicacionSeleccionada.posicion.longitud,
           latitudeDelta: 0.15,
           longitudeDelta: 0.15,
@@ -87,9 +88,24 @@ export function MapaFlota() {
     }
   }, [ubicacionSeleccionada]);
 
-  const seleccionarCamion = useCallback((viajeId: number) => {
-    setViajeSeleccionadoId(viajeId);
-  }, []);
+  const seleccionarCamion = useCallback(
+    (viajeId: number) => {
+      setViajeSeleccionadoId(viajeId);
+      const sel = ubicaciones.find((u) => u.viajeId === viajeId);
+      if (sel && mapRef.current) {
+        mapRef.current.animateToRegion(
+          {
+            latitude: sel.posicion.latitud - 0.03,
+            longitude: sel.posicion.longitud,
+            latitudeDelta: 0.15,
+            longitudeDelta: 0.15,
+          },
+          600
+        );
+      }
+    },
+    [ubicaciones]
+  );
 
   return (
     <ThemedView style={styles.container}>

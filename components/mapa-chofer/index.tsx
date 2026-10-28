@@ -42,6 +42,16 @@ export function MapaChofer({ viajeId }: MapaChoferProps) {
   const { ruta, coordenadasTraza, cargando, actualizando, error, refetch } =
     useRutaChofer({ viajeId, intervaloMs: 5000 });
 
+  const [tracksViewChanges, setTracksViewChanges] = React.useState(true);
+
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => {
+      setTracksViewChanges(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [ruta?.ultimaUbicacion?.latitud, ruta?.ultimaUbicacion?.longitud, ruta?.ultimaUbicacion?.rumboGrados]);
+
   const hasFittedInitial = useRef(false);
 
   // Auto-ajustar la cámara a la ruta del chofer (origen, destino y camión)
@@ -137,6 +147,7 @@ export function MapaChofer({ viajeId }: MapaChoferProps) {
                 ? `${Math.round(ruta.ultimaUbicacion.velocidadKmh)} km/h`
                 : 'En posición'
             }`}
+            tracksViewChanges={tracksViewChanges}
             anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.marcadorContenedor}>
               <View style={[styles.marcadorBadge, { backgroundColor: StatusColors.ok }]}>

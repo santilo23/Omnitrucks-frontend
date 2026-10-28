@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Marker, Callout } from 'react-native-maps';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -21,6 +21,16 @@ export const MarcadorParada = React.memo(function MarcadorParada({
   const iconoNombre = esOrigen ? 'trip-origin' : 'flag';
   const etiqueta = esOrigen ? 'Origen' : 'Destino';
 
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+
+  useEffect(() => {
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => {
+      setTracksViewChanges(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [punto.latitud, punto.longitud, colorFondo]);
+
   return (
     <Marker
       coordinate={{
@@ -28,6 +38,7 @@ export const MarcadorParada = React.memo(function MarcadorParada({
         longitude: punto.longitud,
       }}
       title={`${etiqueta}: ${punto.nombre}`}
+      tracksViewChanges={tracksViewChanges}
       anchor={{ x: 0.5, y: 0.5 }}>
       <View style={styles.contenedor}>
         <View style={[styles.circulo, { backgroundColor: colorFondo }]}>
